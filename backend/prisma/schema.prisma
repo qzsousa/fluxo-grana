@@ -1,0 +1,424 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+enum AccountType {
+  CHECKING
+  SAVINGS
+  CREDIT
+  INVESTMENT
+  CRYPTO
+  CASH
+  OTHER
+}
+
+enum CategoryType {
+  INCOME
+  EXPENSE
+  TRANSFER
+  INVESTMENT
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+  TRANSFER
+  INVESTMENT_BUY
+  INVESTMENT_SELL
+  DIVIDEND
+  INTEREST
+  FEE
+}
+
+enum TransactionStatus {
+  PENDING
+  CLEARED
+  RECONCILED
+  CANCELLED
+}
+
+enum RecurrenceFrequency {
+  DAILY
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+  CUSTOM
+}
+
+enum BudgetPeriod {
+  MONTHLY
+  QUARTERLY
+  YEARLY
+  CUSTOM
+}
+
+enum GoalType {
+  SAVINGS
+  DEBT_PAYOFF
+  INVESTMENT
+  EMERGENCY_FUND
+  CUSTOM
+}
+
+enum InvestmentType {
+  STOCK
+  ETF
+  FUND
+  CRYPTO
+  FIXED_INCOME
+  REAL_ESTATE
+  OTHER
+}
+
+model User {
+  id             String    @id @default(cuid())
+  email          String    @unique
+  passwordHash   String
+  name           String
+  avatar         String?
+  locale         String    @default("pt-BR")
+  currency       String    @default("BRL")
+  timezone       String    @default("America/Sao_Paulo")
+  emailVerified  Boolean   @default(false)
+  twoFactorSecret   String?
+  twoFactorEnabled Boolean @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  accounts       Account[]
+  transactions   Transaction[]
+  categories     Category[]
+  budgets        Budget[]
+  goals          Goal[]
+  recurring      RecurringTransaction[]
+  investments    Investment[]
+  familyMembers  FamilyMember[]
+  ownedFamilies  Family[] @relation("FamilyOwner")
+  apiKeys        ApiKey[]
+  webhooks       Webhook[]
+  refreshTokens  RefreshToken[]
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  revokedAt DateTime?
+
+  @@index([userId, expiresAt])
+}
+
+model Family {
+  id        String   @id @default(cuid())
+  name      String
+  ownerId   String
+  owner     User     @relation("FamilyOwner", fields: [ownerId], references: [id])
+  members   FamilyMember[]
+  accounts  Account[]
+  categories Category[]
+  transactions Transaction[]
+  recurring  RecurringTransaction[]
+  budgets   Budget[]
+  goals     Goal[]
+  investments Investment[]
+  webhooks  Webhook[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerId])
+}
+
+model FamilyMember {
+  id        String   @id @default(cuid())
+  familyId  String
+  family    Family   @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      Role     @default(MEMBER)
+  joinedAt  DateTime @default(now())
+
+  @@unique([familyId, userId])
+  @@index([userId])
+}
+
+model Account {
+  id              String     @id @default(cuid())
+  userId          String
+  user            User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  familyId        String?
+  family          Family?    @relation(fields: [familyId], references: [id], onDelete: SetNull)
+  name            String
+  type            AccountType
+  currency        String     @default("BRL")
+  balance         Decimal    @default(0) @db.Decimal(19, 4)
+  initialBalance  Decimal    @default(0) @db.Decimal(19, 4)
+  color           String     @default("#3B82F6")
+  icon            String?
+  institution     String?
+  accountNumber   String?
+  isActive        Boolean    @default(true)
+  isDefault       Boolean    @default(false)
+  metadata        Json?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  transactions    Transaction[]
+  transferTransactions Transaction[] @relation("TransferTransactions")
+  recurringTransfers RecurringTransaction[] @relation("RecurringTransfers")
+  recurringTransactions RecurringTransaction[]
+  goals           Goal[]
+  investments     Investment[]
+  @@index([userId, isActive])
+  @@index([currency])
+}
+
+model Category {
+  id          String        @id @default(cuid())
+  userId      String
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  familyId    String?
+  family      Family?       @relation(fields: [familyId], references: [id], onDelete: SetNull)
+  name        String
+  icon        String
+  color       String        @default("#6366F1")
+  type        CategoryType
+  parentId    String?
+  parent      Category?     @relation("Subcategories", fields: [parentId], references: [id])
+  children    Category[]    @relation("Subcategories")
+  isDefault   Boolean       @default(false)
+  isActive    Boolean       @default(true)
+  sortOrder   Int           @default(0)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  transactions Transaction[]
+  recurring   RecurringTransaction[]
+  @@index([userId, type, isActive])
+  @@index([parentId])
+}
+
+model Transaction {
+  id              String            @id @default(cuid())
+  userId          String
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  familyId        String?
+  family          Family?           @relation(fields: [familyId], references: [id], onDelete: SetNull)
+  accountId       String
+  account         Account           @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  toAccountId     String?
+  toAccount       Account?          @relation("TransferTransactions", fields: [toAccountId], references: [id], onDelete: SetNull)
+  categoryId      String?
+  category        Category?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  amount          Decimal           @db.Decimal(19, 4)
+  currency        String            @default("BRL")
+  exchangeRate    Decimal?          @db.Decimal(19, 6)
+  description     String
+  notes           String?
+  type            TransactionType
+  status          TransactionStatus @default(CLEARED)
+  date            DateTime
+  dueDate         DateTime?
+  tags            String[]
+  attachmentUrl   String?
+  recurrenceId    String?
+  recurrence      RecurringTransaction? @relation(fields: [recurrenceId], references: [id], onDelete: SetNull)
+  investmentId    String?
+  investment      Investment?       @relation(fields: [investmentId], references: [id], onDelete: SetNull)
+  metadata        Json?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([userId, date])
+  @@index([userId, accountId, date])
+  @@index([userId, categoryId])
+  @@index([familyId, date])
+  @@index([date])
+}
+
+model RecurringTransaction {
+  id              String            @id @default(cuid())
+  userId          String
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  familyId        String?
+  family          Family?           @relation(fields: [familyId], references: [id], onDelete: SetNull)
+  accountId       String
+  account         Account           @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  toAccountId     String?
+  toAccount       Account?          @relation("RecurringTransfers", fields: [toAccountId], references: [id], onDelete: SetNull)
+  categoryId      String?
+  category        Category?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  amount          Decimal           @db.Decimal(19, 4)
+  currency        String            @default("BRL")
+  description     String
+  type            TransactionType
+  frequency       RecurrenceFrequency
+  customCron      String?
+  startDate       DateTime
+  endDate         DateTime?
+  nextRunAt       DateTime
+  lastRunAt       DateTime?
+  isActive        Boolean           @default(true)
+  skipWeekends    Boolean           @default(false)
+  metadata        Json?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  transactions    Transaction[]
+
+  @@index([userId, isActive, nextRunAt])
+}
+
+model Budget {
+  id          String        @id @default(cuid())
+  userId      String
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  familyId    String?
+  family      Family?       @relation(fields: [familyId], references: [id], onDelete: SetNull)
+  name        String
+  period      BudgetPeriod
+  startDate   DateTime
+  endDate     DateTime?
+  amount      Decimal       @db.Decimal(19, 4)
+  currency    String        @default("BRL")
+  categoryIds String[]
+  alertAt     Int           @default(80)
+  isActive    Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([userId, period, startDate])
+}
+
+model Goal {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  familyId      String?
+  family        Family?     @relation(fields: [familyId], references: [id], onDelete: SetNull)
+  name          String
+  description   String?
+  targetAmount  Decimal   @db.Decimal(19, 4)
+  currentAmount Decimal   @default(0) @db.Decimal(19, 4)
+  currency      String    @default("BRL")
+  targetDate    DateTime?
+  type          GoalType
+  accountId     String?
+  account       Account?  @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  isActive      Boolean   @default(true)
+  completedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([userId, isActive])
+}
+
+model Investment {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  familyId      String?
+  family        Family?  @relation(fields: [familyId], references: [id], onDelete: SetNull)
+  accountId     String?
+  account       Account? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  symbol        String
+  name          String
+  type          InvestmentType
+  currency      String   @default("BRL")
+  quantity      Decimal  @db.Decimal(19, 8)
+  averagePrice  Decimal  @db.Decimal(19, 6)
+  currentPrice  Decimal? @db.Decimal(19, 6)
+  targetPrice   Decimal? @db.Decimal(19, 6)
+  stopLoss      Decimal? @db.Decimal(19, 6)
+  sector        String?
+  metadata      Json?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  transactions  Transaction[]
+  priceHistory  PriceHistory[]
+
+  @@index([userId, isActive])
+  @@index([symbol])
+}
+
+model PriceHistory {
+  id           String   @id @default(cuid())
+  investmentId String
+  investment   Investment @relation(fields: [investmentId], references: [id], onDelete: Cascade)
+  price        Decimal  @db.Decimal(19, 6)
+  currency     String   @default("BRL")
+  source       String   @default("manual")
+  date         DateTime
+  createdAt    DateTime @default(now())
+
+  @@unique([investmentId, date])
+  @@index([investmentId, date])
+}
+
+model ApiKey {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  keyHash     String   @unique
+  prefix      String
+  permissions String[]
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Webhook {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  familyId      String?
+  family        Family?  @relation(fields: [familyId], references: [id], onDelete: SetNull)
+  url           String
+  events        String[]
+  secret        String
+  isActive      Boolean  @default(true)
+  failureCount  Int      @default(0)
+  lastTriggered DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  logs          WebhookLog[]
+
+  @@index([userId])
+}
+
+model WebhookLog {
+  id        String   @id @default(cuid())
+  webhookId String
+  webhook   Webhook  @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+  event     String
+  payload   Json
+  response  Json?
+  status    Int
+  success   Boolean
+  createdAt DateTime @default(now())
+
+  @@index([webhookId])
+}

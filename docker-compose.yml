@@ -1,0 +1,56 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: finance-postgres
+    environment:
+      POSTGRES_USER: finance_user
+      POSTGRES_PASSWORD: finance_password
+      POSTGRES_DB: finance
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/prisma:./prisma
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: finance-backend
+    environment:
+      DATABASE_URL: postgresql://finance_user:finance_password@postgres:5432/finance?schema=public
+      JWT_SECRET: your-jwt-secret-min-32-chars-please-change-this
+      NODE_ENV: development
+      PORT: 3000
+      FRONTEND_URL: http://localhost:5173
+    ports:
+      - "3000:3000"
+    depends_on:
+      - postgres
+    volumes:
+      - ./backend:/app
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      ports:
+        - "5173:5173"
+      working_dir: /app
+      command: npm run dev
+    container_name: finance-frontend
+    environment:
+      VITE_API_URL: http://localhost:3000/api/v1
+    volumes:
+      - ./frontend:/app
+    ports:
+      - "4173:4173"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
