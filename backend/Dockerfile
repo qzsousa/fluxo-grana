@@ -3,6 +3,9 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Install OpenSSL so Prisma detects the correct engine variant
+RUN apk add --no-cache openssl
+
 # Install dependencies
 COPY package*.json ./
 RUN npm ci
@@ -22,6 +25,9 @@ RUN npm run build
 FROM node:20-alpine AS production
 
 WORKDIR /app
+
+# Install OpenSSL so Prisma can load the correct engine
+RUN apk add --no-cache openssl
 
 # Copy built files
 COPY package*.json ./
