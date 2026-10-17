@@ -1,161 +1,326 @@
 <template>
-  <div class="min-h-screen bg-gray-50">
-    <div class="max-w-2xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
-      <div class="flex justify-between items-center mb-6">
-        <h1 class="text-2xl font-bold text-gray-900">Webhooks</h1>
-        <Button @click="showCreateForm = true" class="flex items-center gap-2">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-          </svg>
-          Add Webhook
-        </Button>
+  <div class="space-y-6 stagger-in">
+    <!-- Page header -->
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h1 class="font-display text-3xl text-[var(--color-fg)]">Webhooks</h1>
+        <p class="mt-1 text-[var(--color-fg-muted)]">
+          Receba notificações em tempo real em qualquer serviço que aceite requisições HTTP.
+        </p>
       </div>
-
-      <div v-if="webhooks.length > 0">
-        <UiCard>
-          <div class="space-y-4">
-            <div v-for="webhook in webhooks" :key="webhook.id" class="p-4 bg-gray-50 rounded-lg">
-              <div class="flex items-start justify-between">
-                <div>
-                  <p class="font-medium text-gray-900">{{ webhook.name }}</p>
-                  <p class="text-sm text-gray-500">URL: {{ webhook.url }}</p>
-                  <p class="text-xs text-gray-400 mt-1">Events: {{ webhook.events.join(", ") }} • {{ webhook.isActive ? "Active" : "Inactive" }}</p>
-                </div>
-                <div class="flex items-center gap-2">
-                  <Button variant="ghost" size="sm" @click="viewLogs(webhook.id)">Logs</Button>
-                  <Button variant="danger" size="sm" @click="deleteWebhook(webhook.id)">Delete</Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </UiCard>
-      </div>
-
-      <div v-else class="text-center py-12">
-        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+      <Button @click="openCreateForm">
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
         </svg>
-        <h3 class="mt-2 text-sm font-medium text-gray-900">No webhooks</h3>
-        <p class="mt-1 text-sm text-gray-500">Create your first webhook to receive real-time notifications.</p>
-        <div class="mt-6">
-          <Button @click="showCreateForm = true">Add Webhook</Button>
-        </div>
-      </div>
-
-      <UiCard v-if="showCreateForm" class="mt-6">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">Create Webhook</h2>
-        <form @submit.prevent="onCreate" class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Webhook Name</label>
-            <Input v-model="form.name" type="text" required placeholder="e.g., Slack Notifications" />
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Webhook URL</label>
-            <Input v-model="form.url" type="url" required placeholder="https://your-webhook-url.com" />
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Events</label>
-            <div class="grid grid-cols-2 gap-2">
-              <label class="flex items-center gap-2" v-for="event in availableEvents" :key="event">
-                <input type="checkbox" :value="event" v-model="form.events" class="h-4 w-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500" />
-                <span class="text-sm text-gray-700">{{ event }}</span>
-              </label>
-            </div>
-          </div>
-
-          <div class="flex items-center">
-            <input type="checkbox" v-model="form.isActive" id="isActive" class="h-4 w-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500" />
-            <label for="isActive" class="ml-2 text-sm text-gray-700">Active</label>
-          </div>
-
-          <div class="flex justify-end space-x-3 pt-4 border-t">
-            <Button type="button" variant="secondary" @click="showCreateForm = false">Cancel</Button>
-            <Button type="submit" :disabled="creating">{{ creating ? 'Creating...' : 'Create Webhook' }}</Button>
-          </div>
-        </form>
-      </UiCard>
-
-      <UiCard v-if="showLogs" class="mt-6">
-        <div class="flex justify-between items-center mb-4">
-          <h2 class="text-lg font-semibold text-gray-900">Webhook Logs</h2>
-          <Button variant="ghost" @click="showLogs = false">Close</Button>
-        </div>
-        <div class="space-y-4 max-h-96 overflow-y-auto">
-          <div v-for="log in webhookLogs" :key="log.id" class="p-4 bg-gray-50 rounded-lg">
-            <div class="flex items-center justify-between mb-2">
-              <span class="font-medium text-gray-900">{{ log.event }}</span>
-              <span class="text-sm" :class="log.success ? 'text-green-600' : 'text-red-600'">{{ log.success ? 'Success' : 'Failed' }}</span>
-            </div>
-            <p class="text-sm text-gray-500">{{ new Date(log.createdAt).toLocaleString() }}</p>
-            <div class="mt-2 p-2 bg-gray-100 rounded text-xs font-mono overflow-x-auto">
-              <pre>{{ JSON.stringify(log.payload, null, 2) }}</pre>
-            </div>
-            <div v-if="log.response" class="mt-2 p-2 bg-gray-100 rounded text-xs font-mono overflow-x-auto">
-              <pre>{{ JSON.stringify(log.response, null, 2) }}</pre>
-            </div>
-          </div>
-        </div>
-      </UiCard>
+        Criar webhook
+      </Button>
     </div>
+
+    <!-- Existing webhooks -->
+    <Card
+      title="Seus webhooks"
+      description="Cada destino recebe apenas os eventos que você selecionar."
+      padding="none"
+    >
+      <template #header-actions>
+        <span class="badge badge-neutral">
+          {{ webhooks.length }} webhook{{ webhooks.length !== 1 ? "s" : "" }}
+        </span>
+      </template>
+
+      <ul v-if="webhooks.length > 0" class="divide-y divide-[var(--color-border)]">
+        <li
+          v-for="webhook in webhooks"
+          :key="webhook.id"
+          class="flex flex-col gap-3 px-6 py-4 lg:flex-row lg:items-start lg:justify-between"
+        >
+          <div class="min-w-0">
+            <p class="flex flex-wrap items-center gap-2 text-sm font-medium text-[var(--color-fg)]">
+              <span class="truncate">{{ webhook.name }}</span>
+              <span v-if="webhook.isActive" class="badge badge-success">Ativo</span>
+              <span v-else class="badge badge-neutral">Inativo</span>
+            </p>
+            <p class="mt-0.5 truncate font-mono text-xs text-[var(--color-fg-muted)]">{{ webhook.url }}</p>
+            <p class="mt-1 text-xs text-[var(--color-fg-muted)]">
+              Última tentativa: {{ webhook.lastAttemptAt ? formatDate(webhook.lastAttemptAt, "pt-BR") : "nenhuma" }} ·
+              Resposta HTTP: {{ webhook.lastStatus ?? "—" }}
+            </p>
+            <p class="mt-0.5 font-mono text-xs text-[var(--color-fg-subtle)]">
+              Secret: {{ webhook.secret }}
+            </p>
+            <div class="mt-2 flex flex-wrap gap-1.5">
+              <span v-for="event in webhook.events" :key="event" class="badge badge-info">
+                {{ eventLabel(event) }}
+              </span>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2">
+            <Button variant="outline" size="sm" @click="testWebhook(webhook.name)">
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
+              </svg>
+              Testar webhook
+            </Button>
+            <Button variant="ghost" size="sm" @click="viewLogs(webhook.id)">Registros</Button>
+            <Button variant="outline" size="sm" @click="deleteWebhook(webhook.id, webhook.name)">
+              Excluir
+            </Button>
+          </div>
+        </li>
+      </ul>
+
+      <EmptyState
+        v-else
+        icon="inbox"
+        title="Nenhum webhook cadastrado"
+        description="Crie seu primeiro webhook para receber eventos como transação criada ou conta criada."
+        :action="{ label: 'Criar webhook', onClick: openCreateForm }"
+      />
+    </Card>
+
+    <!-- Create form -->
+    <Card v-if="showCreateForm" title="Criar webhook" description="Informe o destino e escolha os eventos que deseja receber." padding="none">
+      <form class="space-y-4 p-6" @submit.prevent="onCreate">
+        <Input
+          id="webhook-name"
+          v-model="form.name"
+          label="Nome do webhook"
+          type="text"
+          required
+          placeholder="Ex.: Notificações do Slack"
+          :error="errors.name"
+        />
+
+        <Input
+          id="webhook-url"
+          v-model="form.url"
+          label="URL do destino"
+          type="url"
+          required
+          placeholder="https://seu-webhook.com"
+          :error="errors.url"
+          hint="O endereço que receberá o payload em requisições POST."
+        />
+
+        <div>
+          <p class="label">Eventos</p>
+          <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <label
+              v-for="event in availableEvents"
+              :key="event.value"
+              class="flex cursor-pointer items-center gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-muted)] px-3 py-2 transition-colors hover:border-[var(--color-border-strong)]"
+            >
+              <input
+                :id="`event-${event.value}`"
+                v-model="form.events"
+                :value="event.value"
+                type="checkbox"
+                class="h-4 w-4 rounded border-[var(--color-border)] text-[var(--color-brand)] focus:ring-[var(--color-brand)]"
+              />
+              <span class="text-sm text-[var(--color-fg)]">{{ event.label }}</span>
+            </label>
+          </div>
+          <p v-if="errors.events" class="error-text">{{ errors.events }}</p>
+        </div>
+
+        <div class="flex items-center justify-between gap-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-muted)] p-4">
+          <div class="min-w-0">
+            <p class="text-sm font-medium text-[var(--color-fg)]">Ativo</p>
+            <p class="mt-0.5 text-xs text-[var(--color-fg-muted)]">
+              Enquanto ativo, o payload é enviado a cada evento escolhido.
+            </p>
+          </div>
+          <button
+            id="webhook-active"
+            type="button"
+            role="switch"
+            :aria-checked="form.isActive"
+            aria-label="Ativo"
+            class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors"
+            :class="form.isActive ? 'bg-[var(--color-brand)]' : 'bg-[var(--color-border-strong)]'"
+            @click="form.isActive = !form.isActive"
+          >
+            <span
+              class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform"
+              :class="form.isActive ? 'translate-x-6' : 'translate-x-1'"
+            ></span>
+          </button>
+        </div>
+
+        <div class="flex justify-end gap-3 pt-4 border-t border-[var(--color-border)]">
+          <Button variant="ghost" type="button" @click="closeCreateForm">Cancelar</Button>
+          <Button type="submit" :loading="creating" @click="onCreate">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            Criar webhook
+          </Button>
+        </div>
+      </form>
+    </Card>
+
+    <!-- Logs -->
+    <Card
+      v-if="showLogs"
+      title="Registros do webhook"
+      :description="selectedWebhook ? `Envios recentes para ${selectedWebhook.name}.` : 'Envios recentes.'"
+      padding="md"
+    >
+      <template #header-actions>
+        <Button variant="ghost" size="sm" @click="closeLogs">Fechar</Button>
+      </template>
+
+      <ul v-if="webhookLogs.length > 0" class="space-y-3">
+        <li
+          v-for="log in webhookLogs"
+          :key="log.id"
+          class="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-muted)] p-4"
+        >
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="text-sm font-medium text-[var(--color-fg)]">{{ eventLabel(log.event) }}</span>
+            <span class="badge" :class="log.success ? 'badge-success' : 'badge-danger'">
+              {{ log.success ? "Enviado" : "Falhou" }}
+            </span>
+          </div>
+          <p class="mt-1 text-xs text-[var(--color-fg-muted)]">
+            Última tentativa: {{ formatDate(log.createdAt, "pt-BR") }} ·
+            Resposta HTTP: {{ log.status || "—" }}
+          </p>
+          <div class="mt-2 overflow-x-auto rounded-lg bg-[var(--color-bg-elevated)] p-3">
+            <p class="text-xs font-semibold text-[var(--color-fg-muted)]">Payload enviado</p>
+            <pre class="mt-1 text-xs text-[var(--color-fg)]">{{ JSON.stringify(log.payload, null, 2) }}</pre>
+          </div>
+          <div v-if="log.response" class="mt-2 overflow-x-auto rounded-lg bg-[var(--color-bg-elevated)] p-3">
+            <p class="text-xs font-semibold text-[var(--color-fg-muted)]">Resposta do destino</p>
+            <pre class="mt-1 text-xs text-[var(--color-fg)]">{{ JSON.stringify(log.response, null, 2) }}</pre>
+          </div>
+        </li>
+      </ul>
+
+      <EmptyState
+        v-else
+        icon="inbox"
+        title="Nenhum registro por aqui"
+        description="Assim que este webhook disparar, você verá o payload enviado e a resposta recebida."
+      />
+    </Card>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref } from "vue";
-import UiCard from "../../components/ui/Card.vue";
-import Input from "../../components/ui/Input.vue";
-import Button from "../../components/ui/Button.vue";
+import { Button, Card, EmptyState, Input } from "../../components/ui";
+import { formatDate } from "../../utils/format";
 
 const showCreateForm = ref(false);
 const creating = ref(false);
-const selectedWebhook = ref(null);
+const showLogs = ref(false);
+const selectedWebhook = ref<{ id: string; name: string } | null>(null);
 
 const form = ref({
   name: "",
   url: "",
-  events: [],
+  events: [] as string[],
   isActive: true,
 });
 
+const errors = ref({
+  name: "",
+  url: "",
+  events: "",
+});
+
 const availableEvents = [
-  "TRANSACTION_CREATED",
-  "TRANSACTION_UPDATED",
-  "TRANSACTION_DELETED",
-  "BUDGET_ALERT",
-  "GOAL_ACHIEVED",
-  "RECURRING_DUE",
+  { value: "TRANSACTION_CREATED", label: "Transação criada" },
+  { value: "TRANSACTION_UPDATED", label: "Transação atualizada" },
+  { value: "TRANSACTION_DELETED", label: "Transação excluída" },
+  { value: "BUDGET_ALERT", label: "Alerta de orçamento" },
+  { value: "GOAL_ACHIEVED", label: "Meta atingida" },
+  { value: "RECURRING_DUE", label: "Recorrente vencido" },
 ];
 
 const webhooks = ref([
-  { id: "1", name: "Slack Notifications", url: "https://hooks.slack.com/services/xxx", events: ["TRANSACTION_CREATED", "BUDGET_ALERT"], isActive: true, createdAt: "2024-01-15" },
+  {
+    id: "1",
+    name: "Notificações do Slack",
+    url: "https://hooks.slack.com/services/xxx",
+    events: ["TRANSACTION_CREATED", "BUDGET_ALERT"],
+    isActive: true,
+    secret: "whsec_****abcd",
+    createdAt: "2024-01-15",
+    lastAttemptAt: "2024-02-01T09:00:00Z",
+    lastStatus: 200,
+  },
 ]);
 
-const selectedWebhookId = ref(null);
 const webhookLogs = ref([
-  { id: "1", event: "TRANSACTION_CREATED", payload: { amount: 50, description: "Coffee" }, response: { status: 200 }, status: 200, success: true, createdAt: "2024-01-15T10:30:00Z" },
-  { id: "2", event: "BUDGET_ALERT", payload: { budget: "Groceries", spent: 90 }, response: null, status: 0, success: false, createdAt: "2024-01-15T09:00:00Z" },
+  {
+    id: "1",
+    event: "TRANSACTION_CREATED",
+    payload: { amount: 50, description: "Café" },
+    response: { status: 200 },
+    status: 200,
+    success: true,
+    createdAt: "2024-01-15T10:30:00Z",
+  },
+  {
+    id: "2",
+    event: "BUDGET_ALERT",
+    payload: { budget: "Mercado", spent: 90 },
+    response: null,
+    status: 0,
+    success: false,
+    createdAt: "2024-01-15T09:00:00Z",
+  },
 ]);
 
-async function onCreate() {
-  if (!form.value.name || !form.value.url || form.value.events.length === 0) {
-    alert("Name, URL, and at least one event are required");
-    return;
-  }
-  // TODO: Implement create webhook
-  alert("Webhook created!");
+function eventLabel(event: string): string {
+  return availableEvents.find((item) => item.value === event)?.label ?? event;
+}
+
+function openCreateForm() {
+  showCreateForm.value = true;
+}
+
+function closeCreateForm() {
   showCreateForm.value = false;
   form.value = { name: "", url: "", events: [], isActive: true };
+  errors.value = { name: "", url: "", events: "" };
 }
 
-async function deleteWebhook(id: string) {
-  if (!confirm("Delete this webhook?")) return;
-  alert("Webhook deleted!");
+async function onCreate() {
+  errors.value.name = form.value.name.trim() ? "" : "Informe um nome para o webhook";
+  errors.value.url = /^https?:\/\/.+/.test(form.value.url) ? "" : "Informe uma URL válida começando com http:// ou https://";
+  errors.value.events = form.value.events.length > 0 ? "" : "Selecione ao menos um evento";
+  if (errors.value.name || errors.value.url || errors.value.events) return;
+
+  creating.value = true;
+  try {
+    // TODO: Implementar criação de webhook
+    closeCreateForm();
+    alert("Webhook criado!");
+  } finally {
+    creating.value = false;
+  }
 }
 
-async function viewLogs(webhook: any) {
-  selectedWebhook.value = webhook;
+async function testWebhook(name: string) {
+  // TODO: Implementar teste de webhook
+  alert(`Enviando payload de teste para ${name}...`);
+}
+
+async function deleteWebhook(id: string, name: string) {
+  if (!confirm(`Excluir o webhook "${name}"?`)) return;
+
+  // TODO: Implementar exclusão de webhook
+  webhooks.value = webhooks.value.filter((webhook) => webhook.id !== id);
+  alert("Webhook excluído.");
+}
+
+function viewLogs(id: string) {
+  const webhook = webhooks.value.find((item) => item.id === id);
+  selectedWebhook.value = webhook ? { id: webhook.id, name: webhook.name } : null;
   showLogs.value = true;
 }
 
@@ -163,5 +328,4 @@ function closeLogs() {
   showLogs.value = false;
   selectedWebhook.value = null;
 }
-
 </script>

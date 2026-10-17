@@ -112,10 +112,12 @@ const errors = ref({
 });
 
 const categoryTypes = [
-  { value: "INCOME", label: "Receita" },
-  { value: "EXPENSE", label: "Despesa" },
-  { value: "TRANSFER", label: "Transferência" },
-  { value: "INVESTMENT", label: "Investimento" },
+  // Rótulos com explicação embutida: categoria é onde o usuário mais decide
+  // "isto é gasto ou ganho", e a palavra sozinha não deixa isso claro.
+  { value: "EXPENSE", label: "Despesa — dinheiro que sai" },
+  { value: "INCOME", label: "Receita — dinheiro que entra" },
+  { value: "TRANSFER", label: "Transferência — muda de conta" },
+  { value: "INVESTMENT", label: "Investimento — aplica ou resgata" },
 ];
 
 function validateForm(): boolean {
@@ -147,7 +149,8 @@ async function onSubmit() {
 
 onMounted(async () => {
   if (isEditing.value && categoryData.value) {
-    form.value = { ...form.value, ...categoryData.value.category };
+    // `useCategory` já devolve a categoria, não um envelope `{ category }`.
+    form.value = { ...form.value, ...categoryData.value };
   }
 });
 </script>

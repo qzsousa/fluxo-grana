@@ -11,6 +11,8 @@ import authRoutes from "./modules/auth/routes";
 import userRoutes from "./modules/users/routes";
 import accountRoutes from "./modules/accounts/routes";
 import transactionRoutes from "./modules/transactions/routes";
+import invoiceRoutes from "./modules/invoices/routes";
+import noteRoutes from "./modules/notes/routes";
 
 // Swagger docs
 import { swaggerUi, swaggerDocument } from "./docs/swagger";
@@ -60,7 +62,7 @@ export function createApp(): Express {
   // Rate limiting - different limits for auth vs API
   const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 10, // 10 requests per window for auth endpoints
+    max: 100, // auth endpoints (dev-friendly)
     message: { error: "Too many authentication attempts, please try again later" },
     standardHeaders: true,
     legacyHeaders: false,
@@ -98,6 +100,8 @@ export function createApp(): Express {
   app.use("/api/v1/users", userRoutes);
   app.use("/api/v1/accounts", accountRoutes);
   app.use("/api/v1/transactions", transactionRoutes);
+  app.use("/api/v1/invoices", invoiceRoutes);
+  app.use("/api/v1/notes", noteRoutes);
 
   // Swagger docs
   app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));

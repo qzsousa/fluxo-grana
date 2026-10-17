@@ -59,7 +59,7 @@
         icon="wallet"
         title="Nenhuma conta cadastrada"
         description="Adicione sua primeira conta bancária, carteira digital ou cartão de crédito para começar a organizar suas finanças."
-        :action="{ label: 'Adicionar Conta', onClick: () => showAddForm.value = true }"
+        :action="{ label: 'Adicionar Conta', onClick: () => (showAddForm = true) }"
       />
     </Card>
 
@@ -133,7 +133,7 @@
 
             <div class="flex justify-end gap-3 pt-4 border-t border-[var(--color-border)]">
               <Button variant="ghost" @click="showAddForm = false">Cancelar</Button>
-              <Button type="submit" :loading="submitting">Criar Conta</Button>
+              <Button type="submit" :loading="createAccountMutation.isPending.value">Criar Conta</Button>
             </div>
           </form>
         </div>

@@ -74,12 +74,15 @@ interface Props {
   title?: string;
   message: string;
   duration?: number;
-  onClose: (id: string) => void;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   duration: 5000,
 });
+
+// O `Toast` é dono do tempo de vida: pausa no hover e emite `close` ao terminar.
+// O composable `useToast` só guarda a lista, senão os dois timers brigariam.
+const emit = defineEmits<{ close: [id: string] }>();
 
 const visible = ref(true);
 const exiting = ref(false);
@@ -110,6 +113,12 @@ const progressColor = computed(() => ({
 })[props.type]);
 
 function startTimer() {
+  // `duration: 0` = fixo, só sai no X.
+  if (props.duration <= 0) {
+    progress.value = 0;
+    return;
+  }
+
   const elapsed = pausedTime.value;
   const remaining = props.duration - elapsed;
   if (remaining <= 0) {
@@ -150,7 +159,7 @@ function close() {
   }
   setTimeout(() => {
     visible.value = false;
-    props.onClose(props.id);
+    emit("close", props.id);
   }, 200);
 }
 
@@ -165,14 +174,19 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .toast {
-  padding: 1rem 1.25rem;
+  width: 100%;
+  padding: 0.875rem 1rem;
   background: var(--color-bg-elevated);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-xl);
   border: 1px solid var(--color-border);
-  min-width: 320px;
-  max-width: 420px;
   animation: slideInRight var(--duration-base) var(--ease-out) forwards;
+}
+
+@media (min-width: 640px) {
+  .toast {
+    min-width: 320px;
+  }
 }
 
 .toast-exit {

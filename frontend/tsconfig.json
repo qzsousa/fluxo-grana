@@ -4,8 +4,7 @@
     "useDefineForClassFields": true,
     "module": "ESNext",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "moduleResolution": "NodeNext",
-    "allowImportingTsExtensions": true,
+    "moduleResolution": "Bundler",
     "resolveJsonModule": true,
     "baseUrl": ".",
     "paths": {
@@ -14,7 +13,6 @@
     },
     "types": ["vite/client"],
     "strict": true,
-    "noUncheckedNamedImports": true,
     "noEmit": true,
     "esModuleInterop": true,
     "skipLibCheck": true,

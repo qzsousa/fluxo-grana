@@ -1,94 +1,156 @@
 <template>
-  <div class="min-h-screen bg-gray-50">
-    <div class="max-w-2xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
-      <h1 class="text-2xl font-bold text-gray-900 mb-6">Invite Family Member</h1>
+  <div class="space-y-6 stagger-in">
+    <!-- Page header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div>
+        <h1 class="font-display text-3xl text-[var(--color-fg)]">Convidar membro</h1>
+        <p class="mt-1 text-[var(--color-fg-muted)]">
+          Compartilhe suas finanças com pessoas de confiança
+        </p>
+      </div>
+      <Button variant="ghost" @click="router.push('/family')">
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l7-7m0 0l-7-7m7 7H3" />
+        </svg>
+        Voltar
+      </Button>
+    </div>
 
-      <UiCard>
-        <form @submit.prevent="onInvite" class="space-y-6">
-          <div>
-            <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
-            <Input
-              id="email"
-              v-model="inviteForm.email"
-              type="email"
-              required
-              autocomplete="email"
-              placeholder="family@email.com"
-            />
-          </div>
+    <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <Card padding="lg" class="lg:col-span-2">
+        <form class="space-y-6" @submit.prevent="onInvite">
+          <Input
+            id="invite-email"
+            v-model="inviteForm.email"
+            type="email"
+            label="E-mail"
+            placeholder="familia@email.com"
+            autocomplete="email"
+            required
+            :error="errors.email"
+            :icon="{
+              viewBox: '0 0 24 24',
+              stroke: 'currentColor',
+              path: 'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z',
+              strokeWidth: 1.8,
+            }"
+          />
+
+          <Select
+            id="invite-role"
+            v-model="inviteForm.role"
+            label="Função"
+            :options="roleOptions"
+            :error="errors.role"
+            hint="Administrador pode gerenciar as contas; Leitor só visualiza."
+          />
 
           <div>
-            <label for="role" class="block text-sm font-medium text-gray-700 mb-1">Role</label>
-            <Select
-              id="role"
-              v-model="inviteForm.role"
-              :options="roleOptions"
-              required
-            />
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Message (optional)</label>
+            <label for="invite-message" class="label">Mensagem (opcional)</label>
             <textarea
+              id="invite-message"
               v-model="inviteForm.message"
               rows="4"
-              class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-              placeholder="Add a personal message to the invitation..."
+              class="input-base resize-none"
+              placeholder="Escreva uma mensagem pessoal para o convite..."
             ></textarea>
           </div>
 
-          <div class="flex justify-end space-x-3 pt-4 border-t">
-            <router-link :to="{ name: 'family' }" class="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
-              Cancel
-            </router-link>
-            <Button type="submit" :disabled="inviting">
-              <span v-if="inviting">Sending...</span>
-              <span v-else>Send Invitation</span>
-            </Button>
+          <div
+            v-if="submitError"
+            class="rounded-lg border border-[var(--color-danger-muted)] bg-[var(--color-danger-light)] p-3 text-sm text-[var(--color-danger)]"
+            role="alert"
+          >
+            {{ submitError }}
+          </div>
+
+          <div
+            v-if="sent"
+            class="rounded-lg border border-[var(--color-success-muted)] bg-[var(--color-success-light)] p-3 text-sm text-[var(--color-success)]"
+            role="status"
+          >
+            Convite enviado para <span class="font-medium">{{ inviteForm.email }}</span>. redirecionando…
+          </div>
+
+          <div class="flex justify-end gap-3 border-t border-[var(--color-border)] pt-4">
+            <Button variant="ghost" type="button" @click="router.push('/family')">Cancelar</Button>
+            <Button type="submit" :loading="inviting">Enviar convite</Button>
           </div>
         </form>
-      </UiCard>
+      </Card>
+
+      <Card title="Funções" padding="md">
+        <ul class="space-y-4">
+          <li class="flex gap-3">
+            <span class="badge badge-info shrink-0">Administrador</span>
+            <p class="text-sm text-[var(--color-fg-muted)]">Gerencia contas, transações e membros da família.</p>
+          </li>
+          <li class="flex gap-3">
+            <span class="badge badge-success shrink-0">Membro</span>
+            <p class="text-sm text-[var(--color-fg-muted)]">Cria e edita movimentações das contas compartilhadas.</p>
+          </li>
+          <li class="flex gap-3">
+            <span class="badge badge-neutral shrink-0">Leitor</span>
+            <p class="text-sm text-[var(--color-fg-muted)]">Apenas visualiza os dados, sem alterar nada.</p>
+          </li>
+        </ul>
+      </Card>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
+import { reactive, ref } from "vue";
 import { useRouter } from "vue-router";
-import UiCard from "../../components/ui/Card.vue";
-import Input from "../../components/ui/Input.vue";
-import Select from "../../components/ui/Select.vue";
-import Button from "../../components/ui/Button.vue";
+import { Button, Card, Input, Select } from "../../components/ui";
 
-const inviting = ref(false);
 const router = useRouter();
 
-const inviteForm = ref({
+const inviting = ref(false);
+const sent = ref(false);
+const submitError = ref("");
+
+const inviteForm = reactive({
   email: "",
   role: "MEMBER",
   message: "",
 });
 
+const errors = reactive({
+  email: "",
+  role: "",
+});
+
 const roleOptions = [
-  { value: "ADMIN", label: "Admin" },
-  { value: "MEMBER", label: "Member" },
-  { value: "VIEWER", label: "Viewer" },
+  { value: "ADMIN", label: "Administrador" },
+  { value: "MEMBER", label: "Membro" },
+  { value: "VIEWER", label: "Leitor" },
 ];
 
+function validate(): boolean {
+  errors.email = inviteForm.email.trim()
+    ? /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inviteForm.email)
+      ? ""
+      : "E-mail inválido"
+    : "E-mail é obrigatório";
+  errors.role = inviteForm.role ? "" : "Selecione uma função";
+  return !errors.email && !errors.role;
+}
+
 async function onInvite() {
-  if (!inviteForm.value.email) {
-    alert("Email is required");
-    return;
-  }
+  submitError.value = "";
+  sent.value = false;
+
+  if (!validate()) return;
 
   inviting.value = true;
   try {
-    // TODO: Implement invite API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    alert("Invitation sent successfully!");
-    router.push({ name: "family" });
+    // TODO: Implementar envio do convite na API
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    sent.value = true;
+    setTimeout(() => router.push("/family"), 1200);
   } catch (error) {
-    alert("Failed to send invitation: " + error.message);
+    submitError.value = "Falha ao enviar o convite. Tente novamente.";
   } finally {
     inviting.value = false;
   }

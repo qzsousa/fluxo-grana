@@ -34,6 +34,10 @@ export interface Account {
   institution?: string;
   isActive: boolean;
   isDefault: boolean;
+  // Só preenchidos em contas do tipo CREDIT.
+  closingDay?: number | null;
+  dueDay?: number | null;
+  creditLimit?: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -48,12 +52,27 @@ export interface Transaction {
   status: string;
   notes?: string;
   tags: string[];
+  /** Marca visual escolhida no formulário. */
+  icon?: string;
+  color?: string;
+/** Quando a despesa foi de fato quitada. */
+  paidAt?: string;
   category?: { id: string; name: string; icon: string; color: string };
   account?: { id: string; name: string; type: string };
   toAccount?: { id: string; name: string };
   categoryId?: string;
   accountId: string;
   toAccountId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Lembrete pessoal da tela inicial. */
+export interface Note {
+  id: string;
+  content: string;
+  color?: string | null;
+  pinned: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -79,6 +98,8 @@ export interface Budget {
   amount: number;
   currency: string;
   categoryIds: string[];
+  // Preenchido só no detalhe, onde o backend devolve as categorias resolvidas.
+  categories?: Category[];
   alertAt: number;
   isActive: boolean;
   createdAt: string;
@@ -149,6 +170,61 @@ export interface PaginatedResponse<T> {
   };
 }
 
+export type InvoiceStatus = "PAID" | "PARTIAL" | "OVERDUE" | "OPEN";
+export type InvoiceUrgency = "paid" | "overdue" | "today" | "soon" | "upcoming";
+
+/**
+ * Fatura do cartão. `total` vem sempre recalculado pelo backend a partir das
+ * compras na janela — por isso o `id` só aparece depois que a fatura é
+ * materializada na listagem.
+ */
+export interface Invoice {
+  id: string | null;
+  reference: string;
+  account: {
+    id: string;
+    name: string;
+    color: string;
+    currency: string;
+    creditLimit: number | null;
+    closingDay: number;
+    dueDay: number;
+    isConfigured: boolean;
+  };
+  periodStart: string;
+  periodEnd: string;
+  closingDate: string;
+  dueDate: string;
+  total: number;
+  paidTotal: number;
+  remaining: number;
+  status: InvoiceStatus;
+  daysUntilDue: number;
+  urgency: InvoiceUrgency;
+  paidAt: string | null;
+  paymentTransactionId: string | null;
+  transactionCount: number;
+  transactions?: InvoicePurchase[];
+}
+
+export interface InvoicePurchase {
+  id: string;
+  description: string;
+  amount: number;
+  currency: string;
+  date: string;
+  notes?: string;
+  tags: string[];
+  category: { id: string; name: string; color: string } | null;
+}
+
+export interface InvoiceFilters {
+  accountId?: string;
+  reference?: string;
+  monthsBack?: number;
+  monthsForward?: number;
+}
+
 export interface TransactionFilters {
   dateFrom?: string;
   dateTo?: string;
@@ -172,9 +248,20 @@ export const queryKeys = {
   },
   transactions: {
     all: ["transactions"] as const,
-    list: (filters: TransactionFilters) => ["transactions", "list", filters] as const,
+    list: (filters: Ref<TransactionFilters>) => ["transactions", "list", filters] as const,
     detail: (id: string) => ["transactions", id] as const,
     stats: ["transactions", "stats"] as const,
+  },
+  notes: {
+    all: ["notes"] as const,
+  },
+  invoices: {
+    all: ["invoices"] as const,
+    list: (filters: Ref<InvoiceFilters>) => ["invoices", "list", filters] as const,
+    detail: (id: string) => ["invoices", "detail", id] as const,
+    // Recebe o ref direto (como `transactions.list`) para que mudar a
+    // antecedência nas preferências dispare um refetch com a nova janela.
+    upcoming: (days: number | Ref<number>) => ["invoices", "upcoming", days] as const,
   },
   categories: {
     all: ["categories"] as const,
@@ -424,6 +511,177 @@ export function useTransactionStats() {
     queryFn: async () => {
       const response = await api.get("/transactions/stats");
       return response.data.stats;
+    },
+  });
+}
+
+/** Paga uma despesa de cartão avulsa, direto da lista. */
+export function usePayTransaction() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: string; data?: { fromAccountId?: string; paidAt?: string } }) => {
+      const response = await api.post(`/transactions/${id}/pay`, data ?? {});
+      return response.data as { message: string; invoiceId: string; invoiceReference: string };
+    },
+    onSuccess: () => {
+      // Mexe na transação, na fatura dela e nos saldos das contas.
+      queryClient.invalidateQueries({ queryKey: queryKeys.transactions.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.invoices.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.accounts.all });
+    },
+  });
+}
+
+export function useRevertTransactionPayment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const response = await api.delete(`/transactions/${id}/pay`);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.transactions.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.invoices.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.accounts.all });
+    },
+  });
+}
+
+// Notes API
+export function useNotes() {
+  return useQuery({
+    queryKey: queryKeys.notes.all,
+    queryFn: async () => {
+      const response = await api.get("/notes");
+      return response.data.notes as Note[];
+    },
+  });
+}
+
+export function useCreateNote() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: Partial<Note>) => {
+      const response = await api.post("/notes", data);
+      return response.data.note as Note;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.notes.all });
+    },
+  });
+}
+
+export function useUpdateNote() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<Note> }) => {
+      const response = await api.put(`/notes/${id}`, data);
+      return response.data.note as Note;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.notes.all });
+    },
+  });
+}
+
+export function useDeleteNote() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const response = await api.delete(`/notes/${id}`);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.notes.all });
+    },
+  });
+}
+
+// Invoices API
+export function useInvoices(filters: Ref<InvoiceFilters>) {
+  return useQuery({
+    queryKey: queryKeys.invoices.list(filters),
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      Object.entries(filters.value).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== "") {
+          params.append(key, String(value));
+        }
+      });
+      const response = await api.get(`/invoices?${params.toString()}`);
+      return response.data.invoices as Invoice[];
+    },
+    placeholderData: (previousData) => previousData,
+  });
+}
+
+/** Fatura única com as compras do período. */
+export function useInvoice(id: Ref<string> | string) {
+  const invoiceId = typeof id === "string" ? id : id.value;
+  return useQuery({
+    queryKey: queryKeys.invoices.detail(invoiceId),
+    queryFn: async () => {
+      const response = await api.get(`/invoices/${invoiceId}`);
+      return response.data.invoice as Invoice;
+    },
+    enabled: !!invoiceId,
+  });
+}
+
+/** Faturas não pagas que vencem em breve — a fonte dos lembretes. */
+export function useUpcomingInvoices(days: Readonly<Ref<number>>) {
+  return useQuery({
+    queryKey: queryKeys.invoices.upcoming(days),
+    queryFn: async () => {
+      const response = await api.get(`/invoices/upcoming?days=${days.value}`);
+      return response.data.invoices as Invoice[];
+    },
+    // Lembrete de fatura não pode ficar preso no cache por muito tempo.
+    staleTime: 5 * 60 * 1000,
+    refetchInterval: 30 * 60 * 1000,
+  });
+}
+
+export function usePayInvoice() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      data,
+    }: {
+      id: string;
+      data?: { amount?: number; paidAt?: string; fromAccountId?: string; description?: string };
+    }) => {
+      const response = await api.post(`/invoices/${id}/pay`, data ?? {});
+      return response.data as { invoice: Invoice; message: string };
+    },
+    onSuccess: () => {
+      // O pagamento mexe na fatura, nos lançamentos e nos saldos das contas.
+      queryClient.invalidateQueries({ queryKey: queryKeys.invoices.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.transactions.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.accounts.all });
+    },
+  });
+}
+
+export function useRevertInvoicePayment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const response = await api.delete(`/invoices/${id}/payment`);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.invoices.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.transactions.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.accounts.all });
     },
   });
 }

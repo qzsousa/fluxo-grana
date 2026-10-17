@@ -1,97 +1,164 @@
 import { ref, computed } from "vue";
 
 export interface OnboardingStep {
-  target: string;
+  /** Seletor CSS do elemento a destacar. `null` = passo central (modal). */
+  target: string | null;
+  title: string;
   content: string;
-  position?: "top" | "bottom" | "left" | "right";
-}
-
-export interface OnboardingState {
-  isActive: boolean;
-  currentStep: number;
-  completed: boolean;
+  /** Posição do balão em relação ao elemento. */
+  placement: "top" | "right" | "bottom" | "left";
+  /** Ícone grande do passo — o tour precisa ser visual, não um texto solto. */
+  icon?: string;
 }
 
 const STORAGE_KEY = "onboarding-completed";
 
+/**
+ * Textos escritos como quem explica para alguém que nunca usou o app: o que é,
+ * para que serve e o que acontece ao clicar. Nada de nome interno de banco.
+ */
 const steps: OnboardingStep[] = [
-  { target: ".nav-dashboard", content: "Seu painel financeiro com visão geral de saldos, gráficos e resumo mensal." },
-  { target: ".nav-accounts", content: "Gerencie suas contas bancárias, cartões de crédito e investimentos." },
-  { target: ".nav-transactions", content: "Registre e visualize todas as suas transações: gastos, receitas e transferências." },
-  { target: ".btn-new-transaction", content: "Crie novas transações rapidamente clicando neste botão." },
+  {
+    target: null,
+    placement: "bottom",
+    icon: "lightbulb",
+    title: "Bem-vindo ao FluxoGrana",
+    content:
+      "Em uns 2 minutos você entende o básico. Vamos passar pelos botões mais importantes um por um. Pode pular quando quiser e rever depois em Configurações → Rever tutorial.",
+  },
+  {
+    target: '[data-tour="new-transaction"]',
+    placement: "top",
+    icon: "plus",
+    title: "Comece por aqui: anotar um gasto",
+    content:
+      "Este botão central abre o formulário de lançamento. É o que você mais vai usar: mercado, salário, conta de luz. O saldo se atualiza na hora.",
+  },
+  {
+    target: '[data-tour="accounts"]',
+    placement: "right",
+    icon: "wallet",
+    title: "Contas: onde o dinheiro fica",
+    content:
+      "Cadastre cada conta, carteira ou cartão aqui. O saldo que aparece no topo do Início é a soma de todas elas — quanto mais separadas, mais preciso fica o resultado. Para cartão, informe dia de fechamento e vencimento para o app montar as faturas.",
+  },
+  {
+    target: '[data-tour="invoices"]',
+    placement: "right",
+    icon: "receipt",
+    title: "Faturas do cartão",
+    content:
+      "As compras feitas no cartão se agrupam sozinhas em faturas pelo período de fechamento. Aqui você vê quanto vence, quando vence e paga com um clique. O sino no topo avisa antes do vencimento.",
+  },
+  {
+    target: '[data-tour="transactions"]',
+    placement: "right",
+    icon: "arrows",
+    title: "Transações: seu histórico",
+    content:
+      "Tudo que você lançou aparece aqui, do mais recente para o mais antigo. A linha tem um botão de pagar quando é compra de cartão — dá para quitar sem abrir a fatura.",
+  },
+  {
+    target: '[data-tour="notes"]',
+    placement: "top",
+    icon: "sticky",
+    title: "Lembretes",
+    content:
+      "Um espaço só seu, lá no fim da tela. Escreva o que não quer esquecer. Não entra no saldo nem nos relatórios. Se preferir algo sem o visual de papel, dá para mudar em Configurações → Aparência.",
+  },
+  {
+    target: '[data-tour="theme"]',
+    placement: "bottom",
+    icon: "palette",
+    title: "Do seu jeito",
+    content:
+      "O sino ao lado traz os avisos de fatura. Este botão alterna tema claro, escuro ou automático. A cor de destaque, a densidade e o tamanho do texto ficam em Configurações → Aparência — o nome FluxoGrana acompanha a cor que você escolher.",
+  },
 ];
 
-const state = ref<OnboardingState>({
-  isActive: false,
-  currentStep: 0,
-  completed: false,
-});
+const isActive = ref(false);
+const currentIndex = ref(0);
 
-function getInitialCompleted(): boolean {
-  if (typeof window === "undefined") return false;
-  return localStorage.getItem(STORAGE_KEY) === "true";
-}
-
-function markCompleted() {
-  state.value.completed = true;
-  if (typeof window !== "undefined") {
-    localStorage.setItem(STORAGE_KEY, "true");
+const isCompleted = () => {
+  try {
+    return localStorage.getItem(STORAGE_KEY) === "true";
+  } catch {
+    return false;
   }
-}
+};
 
-function start() {
-  if (getInitialCompleted()) return;
-  state.value.isActive = true;
-  state.value.currentStep = 0;
-  state.value.completed = false;
+const currentStep = computed<OnboardingStep | null>(() =>
+  isActive.value ? steps[currentIndex.value] ?? null : null
+);
+
+const progress = computed(() => currentIndex.value + 1);
+const totalSteps = steps.length;
+const isFirst = computed(() => currentIndex.value === 0);
+const isLast = computed(() => currentIndex.value === steps.length - 1);
+
+/** Inicia o tour. `force` ignora o "já visto" salvo no localStorage. */
+function start(force = false) {
+  if (!force && isCompleted()) return;
+  currentIndex.value = 0;
+  isActive.value = true;
 }
 
 function next() {
-  if (state.value.currentStep < steps.length - 1) {
-    state.value.currentStep++;
-  } else {
+  if (isLast.value) {
     finish();
+    return;
+  }
+  currentIndex.value += 1;
+}
+
+function previous() {
+  if (!isFirst.value) currentIndex.value -= 1;
+}
+
+function finish() {
+  isActive.value = false;
+  try {
+    localStorage.setItem(STORAGE_KEY, "true");
+  } catch {
+    // Modo privado: o tour só repete nesta sessão.
   }
 }
 
 function skip() {
-  state.value.isActive = false;
-  markCompleted();
-}
-
-function finish() {
-  state.value.isActive = false;
-  markCompleted();
-}
-
-function goToStep(index: number) {
-  if (index >= 0 && index < steps.length) {
-    state.value.currentStep = index;
+  isActive.value = false;
+  try {
+    localStorage.setItem(STORAGE_KEY, "true");
+  } catch {
+    // Idem.
   }
 }
 
-export function useOnboarding() {
-  const isActive = computed(() => state.value.isActive && !state.value.completed);
-  const currentStep = computed(() => state.value.currentStep);
-  const currentStepData = computed(() => steps[state.value.currentStep]);
-  const totalSteps = computed(() => steps.length);
-  const progress = computed(() => ((state.value.currentStep + 1) / steps.length) * 100);
-  const isLastStep = computed(() => state.value.currentStep === steps.length - 1);
+/** Reinicia o tour — usado em Configurações → "Rever tutorial". */
+function restart() {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Idem.
+  }
+  start(true);
+}
 
+export function useOnboarding() {
   return {
     steps,
     isActive,
     currentStep,
-    currentStepData,
+    currentIndex,
     totalSteps,
     progress,
-    isLastStep,
+    isFirst,
+    isLast,
+    isCompleted,
     start,
     next,
-    skip,
+    previous,
     finish,
-    goToStep,
-    markCompleted,
-    getInitialCompleted,
+    skip,
+    restart,
   };
 }

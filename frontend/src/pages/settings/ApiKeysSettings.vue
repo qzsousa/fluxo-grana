@@ -1,90 +1,166 @@
 <template>
-  <div class="min-h-screen bg-gray-50">
-    <div class="max-w-2xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
-      <div class="flex justify-between items-center mb-6">
-        <h1 class="text-2xl font-bold text-gray-900">API Keys</h1>
-        <Button @click="showCreateForm = true" class="flex items-center gap-2">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-          </svg>
-          Create API Key
-        </Button>
+  <div class="space-y-6 stagger-in">
+    <!-- Page header -->
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h1 class="font-display text-3xl text-[var(--color-fg)]">Chaves de API</h1>
+        <p class="mt-1 text-[var(--color-fg-muted)]">
+          Crie chaves para integrar aplicativos e serviços aos seus dados financeiros.
+        </p>
       </div>
-
-      <div v-if="apiKeys.length > 0">
-        <UiCard>
-          <div class="space-y-4">
-            <div v-for="key in apiKeys" :key="key.id" class="p-4 bg-gray-50 rounded-lg">
-              <div class="flex items-center justify-between">
-                <div>
-                  <p class="font-medium text-gray-900">{{ key.name }}</p>
-                  <p class="text-sm text-gray-500">Prefix: {{ key.prefix }} • Created: {{ new Date(key.createdAt).toLocaleDateString() }}</p>
-                  <p class="text-xs text-gray-400 mt-1">Permissions: {{ key.permissions.join(", ") }}</p>
-                </div>
-                <Button variant="danger" size="sm" @click="revokeKey(key.id)">Revoke</Button>
-              </div>
-            </div>
-          </div>
-        </UiCard>
-      </div>
-
-      <div v-else class="text-center py-12">
-        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+      <Button @click="showCreateForm = true">
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
         </svg>
-        <h3 class="mt-2 text-sm font-medium text-gray-900">No API keys</h3>
-        <p class="mt-1 text-sm text-gray-500">Create your first API key to access the API.</p>
-        <div class="mt-6">
-          <Button @click="showCreateForm = true">Create API Key</Button>
+        Criar chave
+      </Button>
+    </div>
+
+    <!-- Warning about the new key -->
+    <div
+      v-if="showKey"
+      class="rounded-xl border border-[var(--color-warning)] bg-[var(--color-warning-light)] p-4"
+      role="status"
+    >
+      <div class="flex items-start gap-3">
+        <svg class="h-5 w-5 flex-shrink-0 text-[var(--color-warning)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+        </svg>
+        <div class="min-w-0 flex-1">
+          <p class="text-sm font-semibold text-[var(--color-warning)]">Cuidado: a chave só será exibida uma vez</p>
+          <p class="mt-1 text-xs text-[var(--color-fg-muted)]">
+            Copie e guarde em local seguro agora — depois disso não será possível recuperar a chave secreta.
+          </p>
+          <p class="mt-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-4 py-3 font-mono text-sm break-all text-[var(--color-fg)]">
+            {{ newKey }}
+          </p>
+          <div class="mt-3 flex flex-wrap gap-3">
+            <Button size="sm" @click="copyToClipboard(newKey)">
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75a2.25 2.25 0 01-2.25-2.25V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
+              </svg>
+              Copiar chave
+            </Button>
+            <Button variant="secondary" size="sm" @click="showKey = false">Já salvei a chave</Button>
+          </div>
         </div>
       </div>
+    </div>
 
-      <UiCard v-if="showCreateForm" class="mt-6">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">Create API Key</h2>
-        <form @submit.prevent="onCreate" class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Key Name</label>
-            <Input v-model="form.name" type="text" required placeholder="e.g., Mobile App" />
-          </div>
+    <!-- Existing keys -->
+    <Card
+      title="Suas chaves"
+      description="Cada chave concede exatamente as permissões marcadas na criação."
+      padding="none"
+    >
+      <template #header-actions>
+        <span class="badge badge-neutral">{{ apiKeys.length }} chave{{ apiKeys.length !== 1 ? "s" : "" }}</span>
+      </template>
 
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Permissions</label>
-            <div class="grid grid-cols-2 gap-2">
-              <label class="flex items-center gap-2" v-for="perm in availablePermissions" :key="perm">
-                <input type="checkbox" :value="perm" v-model="form.permissions" class="h-4 w-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500" />
-                <span class="text-sm text-gray-700">{{ perm }}</span>
-              </label>
+      <ul v-if="apiKeys.length > 0" class="divide-y divide-[var(--color-border)]">
+        <li
+          v-for="key in apiKeys"
+          :key="key.id"
+          class="flex flex-col gap-3 px-6 py-4 lg:flex-row lg:items-center lg:justify-between"
+        >
+          <div class="min-w-0">
+            <p class="text-sm font-medium text-[var(--color-fg)]">{{ key.name }}</p>
+            <p class="mt-0.5 font-mono text-xs text-[var(--color-fg-muted)]">{{ key.prefix }}••••••••••••</p>
+            <p class="mt-1 text-xs text-[var(--color-fg-muted)]">
+              Criada em {{ formatDate(key.createdAt, "pt-BR") }} ·
+              {{ key.lastUsedAt ? `Último uso em ${formatDate(key.lastUsedAt, "pt-BR")}` : "Nunca usada" }}
+            </p>
+            <div class="mt-2 flex flex-wrap gap-1.5">
+              <Tooltip
+                v-for="permission in key.permissions"
+                :key="permission"
+                :content="permission"
+                position="top"
+              >
+                <template #trigger>
+                  <span class="badge badge-info">{{ permissionLabel(permission) }}</span>
+                </template>
+              </Tooltip>
             </div>
           </div>
 
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Expires In (days, optional)</label>
-            <Input v-model.number="form.expiresInDays" type="number" min="1" placeholder="Leave blank for no expiration" />
+          <div class="flex flex-wrap items-center gap-2">
+            <Button variant="ghost" size="sm" @click="copyToClipboard(key.prefix)">Copiar</Button>
+            <Button variant="outline" size="sm" @click="revokeKey(key.id, key.name)">Revogar</Button>
           </div>
+        </li>
+      </ul>
 
-          <div class="flex justify-end space-x-3 pt-4 border-t">
-            <Button type="button" variant="secondary" @click="showCreateForm = false">Cancel</Button>
-            <Button type="submit" :disabled="creating">{{ creating ? 'Creating...' : 'Create API Key' }}</Button>
+      <EmptyState
+        v-else
+        icon="settings"
+        title="Nenhuma chave de API"
+        description="Crie sua primeira chave para integrar aplicativos, planilhas e automações aos seus dados."
+        :action="{ label: 'Criar chave', onClick: openCreateForm }"
+      />
+    </Card>
+
+    <!-- Create form -->
+    <Card v-if="showCreateForm" title="Criar chave" description="Dê um nome e escolha apenas as permissões necessárias." padding="none">
+      <form class="space-y-4 p-6" @submit.prevent="onCreate">
+        <Input
+          id="apikey-name"
+          v-model="form.name"
+          label="Nome da chave"
+          type="text"
+          required
+          placeholder="Ex.: Aplicativo Mobile"
+          :error="errors.name"
+        />
+
+        <div>
+          <p class="label">Permissões</p>
+          <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <label
+              v-for="permission in availablePermissions"
+              :key="permission.value"
+              class="flex cursor-pointer items-center gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-muted)] px-3 py-2 transition-colors hover:border-[var(--color-border-strong)]"
+            >
+              <input
+                :id="`permission-${permission.value}`"
+                v-model="form.permissions"
+                :value="permission.value"
+                type="checkbox"
+                class="h-4 w-4 rounded border-[var(--color-border)] text-[var(--color-brand)] focus:ring-[var(--color-brand)]"
+              />
+              <span class="text-sm text-[var(--color-fg)]">{{ permission.label }}</span>
+            </label>
           </div>
-        </form>
-      </UiCard>
+          <p v-if="errors.permissions" class="error-text">{{ errors.permissions }}</p>
+        </div>
 
-      <UiCard v-if="showKey" class="mt-6 border-green-200 bg-green-50">
-        <h3 class="text-lg font-semibold text-green-800 mb-2">API Key Created!</h3>
-        <p class="text-sm text-green-700 mb-4">Save this key now. You won't be able to see it again.</p>
-        <div class="bg-white p-4 rounded-lg border border-gray-200 font-mono text-sm break-all">{{ newKey }}</div>
-        <Button @click="showKey = false" class="mt-4" variant="secondary">I've saved it</Button>
-      </UiCard>
-    </div>
+        <Input
+          id="apikey-expires"
+          v-model="form.expiresInDays"
+          label="Validade em dias (opcional)"
+          type="number"
+          placeholder="Deixe em branco para não expirar"
+          hint="A chave é revogada automaticamente depois deste período."
+        />
+
+        <div class="flex justify-end gap-3 pt-4 border-t border-[var(--color-border)]">
+          <Button variant="ghost" type="button" @click="closeCreateForm">Cancelar</Button>
+          <Button type="submit" :loading="creating" @click="onCreate">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            Criar chave
+          </Button>
+        </div>
+      </form>
+    </Card>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref } from "vue";
-import UiCard from "../../components/ui/Card.vue";
-import Input from "../../components/ui/Input.vue";
-import Button from "../../components/ui/Button.vue";
-import Select from "../../components/ui/Select.vue";
+import { Button, Card, EmptyState, Input, Tooltip } from "../../components/ui";
+import { formatDate } from "../../utils/format";
 
 const showCreateForm = ref(false);
 const creating = ref(false);
@@ -93,47 +169,84 @@ const newKey = ref("");
 
 const form = ref({
   name: "",
-  permissions: [],
-  expiresInDays: null,
+  permissions: [] as string[],
+  expiresInDays: "",
+});
+
+const errors = ref({
+  name: "",
+  permissions: "",
 });
 
 const availablePermissions = [
-  "READ_TRANSACTIONS",
-  "WRITE_TRANSACTIONS",
-  "READ_ACCOUNTS",
-  "WRITE_ACCOUNTS",
-  "READ_INVESTMENTS",
-  "WRITE_INVESTMENTS",
-  "READ_BUDGETS",
-  "WRITE_BUDGETS",
-  "READ_GOALS",
-  "WRITE_GOALS",
-  "READ_REPORTS",
+  { value: "READ_TRANSACTIONS", label: "Ler transações" },
+  { value: "WRITE_TRANSACTIONS", label: "Criar e editar transações" },
+  { value: "READ_ACCOUNTS", label: "Ler contas" },
+  { value: "WRITE_ACCOUNTS", label: "Criar e editar contas" },
+  { value: "READ_INVESTMENTS", label: "Ler investimentos" },
+  { value: "WRITE_INVESTMENTS", label: "Criar e editar investimentos" },
+  { value: "READ_BUDGETS", label: "Ler orçamentos" },
+  { value: "WRITE_BUDGETS", label: "Criar e editar orçamentos" },
+  { value: "READ_GOALS", label: "Ler metas" },
+  { value: "WRITE_GOALS", label: "Criar e editar metas" },
+  { value: "READ_REPORTS", label: "Ler relatórios" },
 ];
 
 const apiKeys = ref([
-  { id: "1", name: "Mobile App", prefix: "sk_live_abc", permissions: ["READ_TRANSACTIONS", "READ_ACCOUNTS"], createdAt: "2024-01-15" },
+  {
+    id: "1",
+    name: "Aplicativo Mobile",
+    prefix: "sk_live_abc",
+    permissions: ["READ_TRANSACTIONS", "READ_ACCOUNTS"],
+    createdAt: "2024-01-15",
+    lastUsedAt: "2024-02-01",
+  },
 ]);
 
-async function onCreate() {
-  if (!form.value.name) {
-    alert("Key name is required");
-    return;
-  }
-  if (form.value.permissions.length === 0) {
-    alert("At least one permission is required");
-    return;
-  }
-  // TODO: Implement create API key
-  alert("API key created! (mock)");
-  showCreateForm.value = false;
-  showKey.value = true;
-  newKey.value = "sk_live_" + Math.random().toString(36).substr(2, 32);
+function openCreateForm() {
+  showCreateForm.value = true;
 }
 
-async function revokeKey(id) {
-  if (!confirm("Are you sure you want to revoke this API key?")) return;
-  // TODO: Implement revoke API call
-  alert("API key revoked!");
+function closeCreateForm() {
+  showCreateForm.value = false;
+  form.value = { name: "", permissions: [], expiresInDays: "" };
+  errors.value = { name: "", permissions: "" };
+}
+
+function permissionLabel(permission: string): string {
+  return availablePermissions.find((item) => item.value === permission)?.label ?? permission;
+}
+
+async function copyToClipboard(value: string) {
+  try {
+    await navigator.clipboard.writeText(value);
+    alert("Copiado para a área de transferência.");
+  } catch {
+    alert("Não foi possível copiar automaticamente. Selecione e copie manualmente.");
+  }
+}
+
+async function onCreate() {
+  errors.value.name = form.value.name.trim() ? "" : "Informe um nome para a chave";
+  errors.value.permissions = form.value.permissions.length > 0 ? "" : "Selecione ao menos uma permissão";
+  if (errors.value.name || errors.value.permissions) return;
+
+  creating.value = true;
+  try {
+    // TODO: Implementar criação de chave de API
+    newKey.value = "sk_live_" + Math.random().toString(36).substr(2, 32);
+    showCreateForm.value = false;
+    showKey.value = true;
+  } finally {
+    creating.value = false;
+  }
+}
+
+async function revokeKey(id: string, name: string) {
+  if (!confirm(`Revogar a chave "${name}"? Aplicativos que a usarem vão parar de funcionar.`)) return;
+
+  // TODO: Implementar revogação de chave
+  apiKeys.value = apiKeys.value.filter((key) => key.id !== id);
+  alert("Chave revogada.");
 }
 </script>

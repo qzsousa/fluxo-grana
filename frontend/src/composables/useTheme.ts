@@ -1,73 +1,88 @@
-import { ref, watchEffect, watch } from "vue";
+import { ref, computed, watch } from "vue";
 
-type Theme = "light" | "dark" | "system";
+export type ThemePreference = "light" | "dark" | "system";
+export type ResolvedTheme = "light" | "dark";
 
 const STORAGE_KEY = "theme";
 
-function getStoredTheme(): Theme {
-  if (typeof window === "undefined") return "system";
-  const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
-  return stored ?? "system";
+/**
+ * Estado global do tema. Módulo compartilhado entre todas as instâncias
+ * do composable (evita recriar listeners a cada chamada).
+ */
+const preference = ref<ThemePreference>(
+  (localStorage.getItem(STORAGE_KEY) as ThemePreference) || "system"
+);
+const systemPrefersDark = ref(
+  typeof window !== "undefined" &&
+    window.matchMedia?.("(prefers-color-scheme: dark)").matches
+);
+
+let mediaQuery: MediaQueryList | null = null;
+let applying = false;
+
+function applyTheme(theme: ResolvedTheme) {
+  if (typeof document === "undefined") return;
+  applying = true;
+  document.documentElement.setAttribute("data-theme", theme);
+  // Mantém o <meta name="theme-color"> em sincronia com a barra do navegador
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute("content", theme === "dark" ? "#121210" : "#f6f5f1");
+  requestAnimationFrame(() => {
+    applying = false;
+  });
 }
 
-function prefersDark(): boolean {
-  if (typeof window === "undefined") return false;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches;
-}
-
-function resolveTheme(theme: Theme): "light" | "dark" {
-  if (theme === "system") return prefersDark() ? "dark" : "light";
-  return theme;
+if (typeof window !== "undefined" && window.matchMedia) {
+  mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+  mediaQuery.addEventListener("change", (e) => {
+    systemPrefersDark.value = e.matches;
+  });
 }
 
 export function useTheme() {
-  const theme = ref<Theme>(getStoredTheme());
-  const resolved = ref<"light" | "dark">(resolveTheme(theme.value));
+  const resolvedTheme = computed<ResolvedTheme>(() =>
+    preference.value === "system"
+      ? systemPrefersDark.value
+        ? "dark"
+        : "light"
+      : preference.value
+  );
 
-  watchEffect(() => {
-    const r = resolveTheme(theme.value);
-    resolved.value = r;
-    const html = document.documentElement;
-    if (r === "dark") {
-      html.classList.add("dark");
-      html.classList.remove("light");
-    } else {
-      html.classList.add("light");
-      html.classList.remove("dark");
-    }
+  watch(
+    resolvedTheme,
+    (theme) => {
+      if (applying) return;
+      applyTheme(theme);
+    },
+    { immediate: true }
+  );
+
+  watch(preference, (value) => {
+    localStorage.setItem(STORAGE_KEY, value);
   });
 
-  const mediaQuery = typeof window !== "undefined" ? window.matchMedia("(prefers-color-scheme: dark)") : null;
-  if (mediaQuery) {
-    mediaQuery.addEventListener("change", () => {
-      if (theme.value === "system") {
-        resolved.value = prefersDark() ? "dark" : "light";
-      }
-    });
+  function setTheme(value: ThemePreference) {
+    preference.value = value;
   }
 
-  function setTheme(newTheme: Theme) {
-    theme.value = newTheme;
-    localStorage.setItem(STORAGE_KEY, newTheme);
+  /** Cicla entre os três modos: claro -> escuro -> sistema */
+  function cycleTheme() {
+    const order: ThemePreference[] = ["light", "dark", "system"];
+    const current = order.indexOf(preference.value);
+    preference.value = order[(current + 1) % order.length];
   }
-
-  function toggleTheme() {
-    const order: Theme[] = ["light", "dark", "system"];
-    const currentIndex = order.indexOf(theme.value);
-    const nextIndex = (currentIndex + 1) % order.length;
-    setTheme(order[nextIndex]);
-  }
-
-  watch(() => theme.value, (newTheme) => {
-    localStorage.setItem(STORAGE_KEY, newTheme);
-  });
 
   return {
-    theme,
-    resolved,
+    preference,
+    resolvedTheme,
+    isDark: computed(() => resolvedTheme.value === "dark"),
     setTheme,
-    toggleTheme,
+    cycleTheme,
   };
 }
 
-export type { Theme };
+export const themeLabels: Record<ThemePreference, string> = {
+  light: "Claro",
+  dark: "Escuro",
+  system: "Sistema",
+};

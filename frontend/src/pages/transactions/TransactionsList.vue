@@ -79,9 +79,26 @@
           <span class="font-mono text-sm text-[var(--color-fg-muted)]">{{ formatDate(row.date) }}</span>
         </template>
         <template #description="{ row }">
-          <div>
-            <p class="font-medium text-[var(--color-fg)] truncate max-w-xs">{{ row.description }}</p>
-            <p v-if="row.notes" class="text-xs text-[var(--color-fg-subtle)] truncate max-w-xs">{{ row.notes }}</p>
+          <div class="flex items-center gap-2.5">
+            <!-- Marca escolhida no lançamento: ícone na cor escolhida. -->
+            <span
+              v-if="row.icon || row.color"
+              class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
+              :style="lookStyle(row)"
+            >
+              <AppIcon :name="row.icon || 'tag'" :size="14" :stroke-width="2" />
+            </span>
+
+            <div class="min-w-0">
+              <p
+                class="truncate font-medium max-w-xs"
+                :class="row.paidAt ? 'text-[var(--color-fg-muted)] line-through' : 'text-[var(--color-fg)]'"
+              >
+                {{ row.description }}
+              </p>
+              <p v-if="row.notes" class="text-xs text-[var(--color-fg-subtle)] truncate max-w-xs">{{ row.notes }}</p>
+              <p v-if="row.paidAt" class="text-xs text-[var(--color-success)]">Compra paga</p>
+            </div>
           </div>
         </template>
         <template #category="{ row }">
@@ -100,12 +117,33 @@
           </span>
         </template>
         <template #actions="{ row }">
-          <Button variant="ghost" size="icon" @click="router.push(`/transactions/${row.id}`)" aria-label="Ver detalhes">
-            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-            </svg>
-          </Button>
+          <div class="flex items-center gap-1">
+            <Button
+              v-if="isPayable(row)"
+              variant="ghost"
+              size="sm"
+              :aria-label="row.paidAt ? 'Desfazer pagamento' : `Pagar ${row.description}`"
+              :title="row.paidAt ? 'Desfazer pagamento' : 'Pagar esta compra'"
+              @click="togglePay(row)"
+            >
+              <AppIcon
+                :name="row.paidAt ? 'checkCircle' : 'check'"
+                :size="14"
+                :class="row.paidAt ? 'text-[var(--color-success)]' : ''"
+                :stroke-width="2.2"
+              />
+              <span class="ml-1.5 text-xs font-semibold">
+                {{ row.paidAt ? 'Pago' : 'Pagar' }}
+              </span>
+            </Button>
+
+            <Button variant="ghost" size="icon" @click="router.push(`/transactions/${row.id}`)" aria-label="Ver detalhes">
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+            </Button>
+          </div>
         </template>
       </Table>
     </Card>
@@ -157,10 +195,11 @@
                 <Select
                   v-model="form.type"
                   id="tx-type"
-                  label="Tipo *"
+                  label="O que está acontecendo?"
                   :options="typeOptions"
                   required
                   :error="errors.type"
+                  :hint="typeExplain(form.type)"
                 />
               </div>
 
@@ -207,36 +246,52 @@
 
             <div class="flex justify-end gap-3 pt-4 border-t border-[var(--color-border)]">
               <Button variant="ghost" @click="showAddForm = false">Cancelar</Button>
-              <Button type="submit" :loading="createMutation.isLoading.value">Salvar Transação</Button>
+              <Button type="submit" :loading="createMutation.isPending.value">Salvar Transação</Button>
             </div>
           </form>
         </div>
       </div>
     </Transition>
+  <!-- Pagamento rápido da compra, sem sair da lista -->
+    <QuickPayModal v-model:open="quickPayOpen" :purchase="payTarget" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch } from "vue";
+import { ref, reactive, computed } from "vue";
 import { useRouter } from "vue-router";
-import { useTransactions, useCreateTransaction, useAccounts, useCategories } from "../../composables/useApi";
-import type { Transaction, Category, Account } from "../../composables/useApi";
-import { formatCurrency } from "../../utils/format";
-import { Button, Card, Input, Select, Table, EmptyState } from "../../components/ui";
+import { useTransactions, useCreateTransaction, useAccounts, useCategories, usePayTransaction, useRevertTransactionPayment } from "../../composables/useApi";
+import type { Transaction, TransactionFilters, Category, Account } from "../../composables/useApi";
+import { formatCurrency, formatDate, startOfDayIso, endOfDayIso, toIsoDateTime } from "../../utils/format";
+import { expenseColorByHex } from "../../utils/palette";
+import { ALL_TRANSACTION_TYPES, transactionTypeInfo } from "../../utils/transaction-types";
+import { AppIcon, Button, Card, Input, Select, Table } from "../../components/ui";
+import QuickPayModal from "../../components/transactions/QuickPayModal.vue";
 
 const router = useRouter();
 
-// Queries
-const transactionsQuery = useTransactions(ref({
+// Filters (UI values kept as date-picker strings, converted to ISO for the API)
+const filters = ref({
   search: "",
   dateFrom: "",
   dateTo: "",
   categoryId: "",
   accountId: "",
-  page: 1,
-  limit: 20,
-}));
+});
+const page = ref(1);
+const limit = ref(20);
 
+const queryFilters = computed<TransactionFilters>(() => {
+  const f: TransactionFilters = { page: page.value, limit: limit.value };
+  if (filters.value.search) f.search = filters.value.search;
+  if (filters.value.dateFrom) f.dateFrom = startOfDayIso(filters.value.dateFrom);
+  if (filters.value.dateTo) f.dateTo = endOfDayIso(filters.value.dateTo);
+  if (filters.value.categoryId) f.categoryId = filters.value.categoryId;
+  if (filters.value.accountId) f.accountId = filters.value.accountId;
+  return f;
+});
+
+const transactionsQuery = useTransactions(queryFilters);
 const accountsQuery = useAccounts();
 const categoriesQuery = useCategories();
 
@@ -246,14 +301,6 @@ const createMutation = useCreateTransaction();
 // State
 const showAddForm = ref(false);
 const submitError = ref("");
-
-const filters = reactive({
-  search: "",
-  dateFrom: "",
-  dateTo: "",
-  categoryId: "",
-  accountId: "",
-});
 
 const form = reactive({
   description: "",
@@ -273,11 +320,16 @@ const errors = reactive({
   accountId: "",
 });
 
-const typeOptions = [
-  { value: "EXPENSE", label: "Despesa" },
-  { value: "INCOME", label: "Receita" },
-  { value: "TRANSFER", label: "Transferência" },
-];
+// Só os três do dia a dia: o modal rápido é para lançar gasto e entrada.
+// Quem investe usa o formulário completo, que mostra todos os tipos.
+const typeOptions = ALL_TRANSACTION_TYPES.filter((type) =>
+  ["EXPENSE", "INCOME", "TRANSFER"].includes(type.value)
+).map((type) => ({ value: type.value, label: `${type.label} — ${type.hint.toLowerCase()}` }));
+
+/** Explicação do tipo escolhido logo abaixo do campo. */
+function typeExplain(value: string): string {
+  return transactionTypeInfo(value)?.explain ?? "";
+}
 
 const accountOptions = computed(() =>
   (accountsQuery.data.value ?? []).map((a: Account) => ({
@@ -303,6 +355,15 @@ const paginationData = computed(() => {
   };
 });
 
+const tableColumns = [
+  { key: "date", label: "Data", minWidth: "110px" },
+  { key: "description", label: "Descrição", tooltip: "Nome ou descrição da movimentação" },
+  { key: "category", label: "Categoria" },
+  { key: "account", label: "Conta" },
+  { key: "amount", label: "Valor", align: "right" as const, minWidth: "120px" },
+  { key: "actions", label: "Ações", align: "right" as const, minWidth: "80px" },
+];
+
 function signedAmount(tx: Transaction): number {
   const amount = Math.abs(Number(tx.amount || 0));
   if (tx.type === "EXPENSE") return -amount;
@@ -310,8 +371,39 @@ function signedAmount(tx: Transaction): number {
   return 0;
 }
 
-function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString("pt-BR");
+function lookStyle(tx: Transaction): Record<string, string> {
+  const color = expenseColorByHex(tx.color);
+  if (!color) return { backgroundColor: "var(--color-bg-muted)", color: "var(--color-fg-muted)" };
+  return { backgroundColor: color.soft, color: color.ink };
+}
+
+/** Só despesa em cartão tem pagamento rápido. */
+function isPayable(tx: Transaction): boolean {
+  return tx.type === "EXPENSE" && (tx.account?.type === "CREDIT" || tx.status === "PENDING");
+}
+
+const payTarget = ref<Transaction | null>(null);
+const quickPayOpen = ref(false);
+const revertPay = useRevertTransactionPayment();
+const directPay = usePayTransaction();
+
+function togglePay(tx: Transaction) {
+  if (!tx.paidAt) {
+    if (tx.account?.type === "CREDIT") {
+      payTarget.value = tx;
+      quickPayOpen.value = true;
+      return;
+    }
+    directPay
+      .mutateAsync({ id: tx.id, data: {} })
+      .catch((error: any) => console.error(error?.response?.data?.error || "Não foi possível pagar"));
+    return;
+  }
+  revertPay
+    .mutateAsync(tx.id)
+    .catch((error: any) =>
+      console.error(error?.response?.data?.error || "Não foi possível desfazer o pagamento")
+    );
 }
 
 function validateForm(): boolean {
@@ -334,7 +426,7 @@ async function onSubmit() {
       description: form.description,
       amount: form.amount,
       type: form.type,
-      date: form.date,
+      date: toIsoDateTime(form.date),
       accountId: form.accountId,
       categoryId: form.categoryId || undefined,
       notes: form.notes || undefined,
@@ -352,17 +444,12 @@ async function onSubmit() {
   }
 }
 
-function onPageChange(page: number) {
-  filters.page = page;
+function onPageChange(newPage: number) {
+  page.value = newPage;
 }
 
-function onLimitChange(limit: number) {
-  filters.limit = limit;
-  filters.page = 1;
+function onLimitChange(newLimit: number) {
+  limit.value = newLimit;
+  page.value = 1;
 }
-
-// Watch filters to update query
-watch(() => filters, (newFilters) => {
-  Object.assign(transactionsQuery.data.value, newFilters);
-}, { deep: true });
 </script>

@@ -51,7 +51,7 @@
         icon="chart"
         title="Nenhum orçamento criado"
         description="Defina limites de gastos por categoria para controlar melhor suas finanças."
-        :action="{ label: 'Criar Orçamento', onClick: () => showAddForm.value = true }"
+        :action="{ label: 'Criar Orçamento', onClick: () => (showAddForm = true) }"
       />
     </Card>
 

@@ -62,15 +62,22 @@
 
     <div>
       <label for="budget-categories" class="label">Categorias</label>
-      <Select
+      <!-- `Select` é de valor único; orçamento usa o <select multiple> nativo
+           para permitir escolher várias categorias de uma vez. -->
+      <select
         id="budget-categories"
         v-model="form.categoryIds"
-        :options="categoryOptions"
         multiple
-        :error="errors.categoryIds"
-        class="min-h-[120px]"
-      />
-      <p class="mt-1 text-xs text-[var(--color-fg-muted)]">Segure Ctrl/Cmd para selecionar múltiplas</p>
+        size="6"
+        class="input-base min-h-[120px]"
+        :class="{ error: errors.categoryIds }"
+      >
+        <option v-for="option in categoryOptions" :key="option.value" :value="option.value">
+          {{ option.label }}
+        </option>
+      </select>
+      <p v-if="errors.categoryIds" class="error-text">{{ errors.categoryIds }}</p>
+      <p v-else class="help-text">Segure Ctrl (ou Shift) para escolher mais de uma.</p>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -120,6 +127,10 @@ const { data: categoriesData } = useCategories();
 const { mutateAsync: createBudget } = useCreateBudget();
 const { mutateAsync: updateBudget } = useUpdateBudget();
 
+// Emit explícito em vez de `$emit`: o compilador não gera o atalho `$emit`
+// neste arquivo e `emit("saved")` deixa o tipo do evento explícito.
+const emit = defineEmits<{ saved: []; cancel: [] }>();
+
 const saving = ref(false);
 
 const form = ref({
@@ -129,7 +140,8 @@ const form = ref({
   endDate: "",
   amount: 0,
   currency: "BRL",
-  categoryIds: [],
+  // Anotado explicitamente: sem isso o TS infere `never[]` a partir de `[]`.
+  categoryIds: [] as string[],
   alertAt: 80,
   isActive: true,
 });
@@ -182,7 +194,7 @@ async function onSubmit() {
     } else {
       await createBudget(form.value);
     }
-    $emit("saved");
+    emit("saved");
   } catch (error) {
     alert("Falha ao salvar orçamento: " + (error as Error).message);
   } finally {
@@ -207,6 +219,4 @@ onMounted(async () => {
     }
   }
 });
-
-defineEmits<{ saved: []; cancel: [] }>();
 </script>

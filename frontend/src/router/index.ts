@@ -87,6 +87,16 @@ const routes = [
     meta: { requiresAuth: true, layout: "default" },
   },
   {
+    path: "/invoices",
+    component: () => import("../pages/invoices/InvoicesList.vue"),
+    meta: { requiresAuth: true, layout: "default" },
+  },
+  {
+    path: "/invoices/:id",
+    component: () => import("../pages/invoices/InvoiceDetail.vue"),
+    meta: { requiresAuth: true, layout: "default" },
+  },
+  {
     path: "/categories",
     component: () => import("../pages/categories/CategoriesList.vue"),
     meta: { requiresAuth: true, layout: "default" },
@@ -197,6 +207,11 @@ const routes = [
     meta: { requiresAuth: true, layout: "default" },
   },
   {
+    path: "/settings/appearance",
+    component: () => import("../pages/settings/AppearanceSettings.vue"),
+    meta: { requiresAuth: true, layout: "default" },
+  },
+  {
     path: "/settings/security",
     component: () => import("../pages/settings/SecuritySettings.vue"),
     meta: { requiresAuth: true, layout: "default" },
@@ -229,6 +244,11 @@ const routes = [
   {
     path: "/family/invite",
     component: () => import("../pages/family/FamilyInvite.vue"),
+    meta: { requiresAuth: true, layout: "default" },
+  },
+  {
+    path: "/docs",
+    component: () => import("../pages/docs/Docs.vue"),
     meta: { requiresAuth: true, layout: "default" },
   },
 ];

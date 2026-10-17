@@ -1,11 +1,11 @@
 <template>
-  <div class="bg-[var(--color-bg-elevated)] rounded-2xl border border-[var(--color-border)] p-8 stagger-in">
-    <div class="text-center mb-8">
-      <h1 class="font-display text-2xl text-[var(--color-fg)] mb-2">Entrar na sua conta</h1>
-      <p class="text-[var(--color-fg-muted)]">Acesse seu painel financeiro</p>
+  <div class="rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-5 sm:p-7 stagger-in">
+    <div class="mb-6 text-center sm:mb-7">
+      <h1 class="mb-1.5 text-xl font-semibold tracking-tight text-[var(--color-fg)]">Entrar na sua conta</h1>
+      <p class="text-sm text-[var(--color-fg-muted)]">Acesse seu painel financeiro</p>
     </div>
 
-    <form @submit.prevent="onSubmit" class="space-y-5">
+    <form @submit.prevent="onSubmit" class="space-y-4">
       <Input
         id="email"
         v-model="email"
@@ -52,8 +52,13 @@
         <router-link to="/forgot-password" class="link text-sm">Esqueci a senha</router-link>
       </div>
 
-      <div v-if="error" class="p-3 rounded-lg bg-[var(--color-danger-light)] border border-[var(--color-danger-muted)] text-sm text-[var(--color-danger)]" role="alert">
-        {{ error }}
+      <div
+        v-if="error"
+        class="flex items-start gap-2.5 rounded-xl border border-[var(--color-danger-muted)] bg-[var(--color-danger-light)] px-4 py-3 text-sm text-[var(--color-danger)]"
+        role="alert"
+      >
+        <AppIcon name="alert" :size="18" class="mt-px shrink-0" />
+        <span>{{ error }}</span>
       </div>
 
       <Button type="submit" variant="primary" fullWidth :loading="auth.loading" class="mt-2">
@@ -75,7 +80,7 @@
 import { ref, reactive } from "vue";
 import { useAuthStore } from "../../stores/auth";
 import { useRouter } from "vue-router";
-import { Input, Button } from "../../components/ui";
+import { Input, Button, AppIcon } from "../../components/ui";
 
 const email = ref("");
 const password = ref("");

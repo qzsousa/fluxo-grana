@@ -1,5 +1,7 @@
 <template>
-  <div class="fixed bottom-4 right-4 z-[var(--z-toast)] flex flex-col gap-3 pointer-events-none">
+  <div
+    class="pointer-events-none fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom,0px)+5.5rem)] z-[var(--z-toast)] flex flex-col gap-2 sm:inset-x-auto sm:bottom-4 sm:right-4 sm:w-[380px]"
+  >
     <Toast
       v-for="toast in toasts"
       :key="toast.id"
@@ -8,54 +10,16 @@
       :title="toast.title"
       :message="toast.message"
       :duration="toast.duration"
-      @close="removeToast"
+      @close="remove"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from "vue";
+import { useToast } from "../../composables/useToast";
 import Toast from "./Toast.vue";
 
-interface ToastItem {
-  id: string;
-  type: "success" | "error" | "warning" | "info";
-  title?: string;
-  message: string;
-  duration?: number;
-}
-
-const toasts = ref<ToastItem[]>([]);
-
-let toastId = 0;
-
-function generateId(): string {
-  return `toast-${++toastId}-${Date.now()}`;
-}
-
-function showToast(toast: Omit<ToastItem, "id">) {
-  const id = generateId();
-  toasts.value.push({ ...toast, id });
-  return id;
-}
-
-function removeToast(id: string) {
-  const index = toasts.value.findIndex((t) => t.id === id);
-  if (index !== -1) {
-    toasts.value.splice(index, 1);
-  }
-}
-
-const useToast = () => ({
-  success: (message: string, title?: string, duration?: number) =>
-    showToast({ type: "success", message, title, duration }),
-  error: (message: string, title?: string, duration?: number) =>
-    showToast({ type: "error", message, title, duration }),
-  warning: (message: string, title?: string, duration?: number) =>
-    showToast({ type: "warning", message, title, duration }),
-  info: (message: string, title?: string, duration?: number) =>
-    showToast({ type: "info", message, title, duration }),
-});
-
-defineExpose({ useToast });
+// Consome o estado de módulo de `useToast` — antes este componente mantinha a
+// própria lista, então `toast.success(...)` em qualquer página nunca aparecia.
+const { toasts, remove } = useToast();
 </script>

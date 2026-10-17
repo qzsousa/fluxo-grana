@@ -1,148 +1,329 @@
 <template>
-  <div class="min-h-screen bg-gray-50">
-    <div class="max-w-2xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
-      <h1 class="text-2xl font-bold text-gray-900 mb-6">Import & Export Data</h1>
-
-      <UiCard>
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">Export Data</h2>
-        <p class="text-gray-600 mb-6">Download your financial data in various formats.</p>
-        
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Button variant="secondary" @click="exportData('transactions')" :disabled="exporting">
-            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-            </svg>
-            Export Transactions (CSV)
-          </Button>
-          <Button variant="secondary" @click="exportData('accounts')" :disabled="exporting">
-            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-            </svg>
-            Export Accounts (CSV)
-          </Button>
-          <Button variant="secondary" @click="exportData('investments')" :disabled="exporting">
-            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-            </svg>
-            Export Investments (CSV)
-          </Button>
-          <Button variant="secondary" @click="exportData('full')" :disabled="exporting">
-            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-            </svg>
-            Full Backup (JSON)
-          </Button>
-        </div>
-      </UiCard>
-
-      <UiCard class="mt-6">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">Import Data</h2>
-        <p class="text-gray-600 mb-6">Import transactions from CSV or OFX files.</p>
-        
-        <form @submit.prevent="onImport" class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Import Type</label>
-            <Select v-model="importType" :options="importTypeOptions" required />
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">File</label>
-            <input
-              type="file"
-              ref="fileInput"
-              @change="onFileSelect"
-              accept=".csv,.ofx"
-              class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-            />
-            <p v-if="selectedFile" class="mt-1 text-sm text-gray-500">{{ selectedFile.name }} ({{ formatFileSize(selectedFile.size) }})</p>
-          </div>
-
-          <div v-if="importType === 'transactions'" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Default Account</label>
-              <Select v-model="importAccountId" :options="accountOptions" required />
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Date Format</label>
-              <Select v-model="dateFormat" :options="dateFormatOptions" />
-            </div>
-          </div>
-
-          <div>
-            <label class="flex items-center gap-2">
-              <input type="checkbox" v-model="skipDuplicates" class="h-4 w-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500" />
-              <span class="text-sm text-gray-700">Skip duplicate transactions</span>
-            </label>
-          </div>
-
-          <div class="flex justify-end space-x-3 pt-4 border-t">
-            <Button type="submit" :disabled="importing">{{ importing ? 'Importing...' : 'Import Data' }}</Button>
-          </div>
-        </form>
-      </UiCard>
-
-      <UiCard v-if="importResult" class="mt-6 border-green-200 bg-green-50">
-        <h3 class="text-lg font-semibold text-green-800 mb-2">Import Successful!</h3>
-        <div class="space-y-2 text-sm text-green-700">
-          <p>Transactions imported: <span class="font-medium">{{ importResult.imported }}</span></p>
-          <p>Transactions skipped: <span class="font-medium">{{ importResult.skipped }}</span></p>
-          <p>Errors: <span class="font-medium">{{ importResult.errors }}</span></p>
-        </div>
-        <Button @click="importResult = null" class="mt-4" variant="secondary">Dismiss</Button>
-      </UiCard>
+  <div class="space-y-6 stagger-in">
+    <!-- Page header -->
+    <div>
+      <h1 class="font-display text-3xl text-[var(--color-fg)]">Importar/Exportar</h1>
+      <p class="mt-1 text-[var(--color-fg-muted)]">
+        Faça uma cópia dos seus dados ou traga transações de outro aplicativo.
+      </p>
     </div>
+
+    <!-- Export -->
+    <Card
+      title="Exportar todos os dados"
+      description="Gere um arquivo com tudo o que está salvo na sua conta."
+      padding="none"
+    >
+      <div class="space-y-4 p-6">
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <Select
+            id="export-format"
+            v-model="exportFormat"
+            label="Formato"
+            :options="exportFormatOptions"
+          />
+
+          <div>
+            <p class="label">Conteúdo do arquivo</p>
+            <div class="space-y-2">
+              <label class="flex cursor-pointer items-center gap-2 text-sm text-[var(--color-fg)]">
+                <input
+                  id="export-categories"
+                  v-model="exportOptions.includeCategories"
+                  type="checkbox"
+                  class="h-4 w-4 rounded border-[var(--color-border)] text-[var(--color-brand)] focus:ring-[var(--color-brand)]"
+                />
+                Incluir categorias
+              </label>
+              <label class="flex cursor-pointer items-center gap-2 text-sm text-[var(--color-fg)]">
+                <input
+                  id="export-budgets"
+                  v-model="exportOptions.includeBudgets"
+                  type="checkbox"
+                  class="h-4 w-4 rounded border-[var(--color-border)] text-[var(--color-brand)] focus:ring-[var(--color-brand)]"
+                />
+                Incluir orçamentos
+              </label>
+              <label class="flex cursor-pointer items-center gap-2 text-sm text-[var(--color-fg)]">
+                <input
+                  id="export-goals"
+                  v-model="exportOptions.includeGoals"
+                  type="checkbox"
+                  class="h-4 w-4 rounded border-[var(--color-border)] text-[var(--color-brand)] focus:ring-[var(--color-brand)]"
+                />
+                Incluir metas
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Button variant="secondary" :disabled="exporting" @click="exportData('transactions')">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Exportar transações (CSV)
+          </Button>
+          <Button variant="secondary" :disabled="exporting" @click="exportData('accounts')">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Exportar contas (CSV)
+          </Button>
+          <Button variant="secondary" :disabled="exporting" @click="exportData('investments')">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Exportar investimentos (CSV)
+          </Button>
+          <Button variant="outline" :disabled="exporting" @click="exportData('full')">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-5.5a2.5 2.5 0 01-5 0H4" />
+            </svg>
+            Backup completo (JSON)
+          </Button>
+        </div>
+
+        <div class="flex justify-end">
+          <Button :loading="exporting" @click="exportData('full')">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Exportar todos os dados
+          </Button>
+        </div>
+      </div>
+    </Card>
+
+    <!-- Import -->
+    <Card
+      title="Enviar arquivo"
+      description="Importe transações de arquivos CSV ou OFX."
+      padding="none"
+    >
+      <form class="space-y-4 p-6" @submit.prevent="onImport">
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <Select
+            id="import-type"
+            v-model="importType"
+            label="Tipo de importação"
+            :options="importTypeOptions"
+          />
+
+          <Select
+            id="import-date-format"
+            v-model="dateFormat"
+            label="Formato de data"
+            :options="dateFormatOptions"
+          />
+        </div>
+
+        <div v-if="importType === 'transactions'">
+          <Select
+            id="import-account"
+            v-model="importAccountId"
+            label="Conta padrão"
+            :options="accountOptions"
+            hint="As transações importadas serão lançadas nesta conta."
+          />
+        </div>
+
+        <div>
+          <label for="import-file" class="label">Selecionar arquivo</label>
+          <input
+            id="import-file"
+            ref="fileInput"
+            type="file"
+            accept=".csv,.ofx"
+            class="w-full cursor-pointer rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-2 text-sm text-[var(--color-fg-muted)] file:mr-4 file:cursor-pointer file:rounded-lg file:border-0 file:bg-[var(--color-brand-light)] file:px-4 file:py-2 file:text-sm file:font-medium file:text-[var(--color-brand)] hover:file:bg-[var(--color-brand-muted)]"
+            @change="onFileSelect"
+          />
+          <p class="help-text">
+            <span v-if="selectedFile">
+              {{ selectedFile.name }} ({{ formatFileSize(selectedFile.size) }})
+            </span>
+            <span v-else>Nenhum arquivo selecionado. Formatos aceitos: CSV e OFX.</span>
+          </p>
+        </div>
+
+        <div class="flex items-center justify-between gap-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-muted)] p-4">
+          <div class="min-w-0">
+            <p class="text-sm font-medium text-[var(--color-fg)]">Ignorar transações duplicadas</p>
+            <p class="mt-0.5 text-xs text-[var(--color-fg-muted)]">
+              Registros já existentes com a mesma data, valor e descrição são ignorados.
+            </p>
+          </div>
+          <button
+            id="import-skip-duplicates"
+            type="button"
+            role="switch"
+            :aria-checked="skipDuplicates"
+            aria-label="Ignorar transações duplicadas"
+            class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors"
+            :class="skipDuplicates ? 'bg-[var(--color-brand)]' : 'bg-[var(--color-border-strong)]'"
+            @click="skipDuplicates = !skipDuplicates"
+          >
+            <span
+              class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform"
+              :class="skipDuplicates ? 'translate-x-6' : 'translate-x-1'"
+            ></span>
+          </button>
+        </div>
+
+        <div class="flex justify-end gap-3 pt-4 border-t border-[var(--color-border)]">
+          <Button type="submit" :loading="importing" @click="onImport">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M4.5 19.5h15a2.25 2.25 0 002.25-2.25v-6a2.25 2.25 0 00-2.25-2.25H6.75A2.25 2.25 0 004.5 11.25v6a2.25 2.25 0 002.25 2.25z" />
+            </svg>
+            Iniciar importação
+          </Button>
+        </div>
+      </form>
+    </Card>
+
+    <!-- Import result -->
+    <div
+      v-if="importResult"
+      class="rounded-xl border border-[var(--color-success)] bg-[var(--color-success-light)] p-4"
+      role="status"
+    >
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div class="min-w-0">
+          <p class="text-sm font-semibold text-[var(--color-success)]">Importação concluída!</p>
+          <div class="mt-2 space-y-1 text-xs text-[var(--color-fg-muted)]">
+            <p>Transações importadas: <span class="font-semibold text-[var(--color-fg)]">{{ importResult.imported }}</span></p>
+            <p>Transações ignoradas: <span class="font-semibold text-[var(--color-fg)]">{{ importResult.skipped }}</span></p>
+            <p>Erros: <span class="font-semibold text-[var(--color-fg)]">{{ importResult.errors }}</span></p>
+          </div>
+        </div>
+        <Button variant="secondary" size="sm" @click="importResult = null">Fechar</Button>
+      </div>
+    </div>
+
+    <!-- Import history -->
+    <Card
+      title="Histórico de importações"
+      description="Últimos arquivos enviados para esta conta."
+      padding="none"
+    >
+      <ul v-if="importHistory.length > 0" class="divide-y divide-[var(--color-border)]">
+        <li
+          v-for="entry in importHistory"
+          :key="entry.id"
+          class="flex flex-col gap-2 px-6 py-4 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div class="flex min-w-0 items-center gap-3">
+            <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--color-brand-light)] text-[var(--color-brand)]">
+              <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+              </svg>
+            </span>
+            <div class="min-w-0">
+              <p class="truncate text-sm font-medium text-[var(--color-fg)]">{{ entry.fileName }}</p>
+              <p class="truncate text-xs text-[var(--color-fg-muted)]">
+                {{ formatDate(entry.createdAt, "pt-BR") }} · {{ entry.imported }} importada{{ entry.imported !== 1 ? "s" : "" }} ·
+                {{ entry.skipped }} ignorada{{ entry.skipped !== 1 ? "s" : "" }}
+              </p>
+            </div>
+          </div>
+          <span class="badge" :class="entry.errors > 0 ? 'badge-warning' : 'badge-success'">
+            {{ entry.errors > 0 ? `${entry.errors} erro${entry.errors !== 1 ? "s" : ""}` : "Concluída" }}
+          </span>
+        </li>
+      </ul>
+
+      <EmptyState
+        v-else
+        icon="inbox"
+        title="Nenhuma importação registrada"
+        description="Quando você enviar um arquivo, ele aparecerá aqui com o resumo do resultado."
+      />
+    </Card>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from "vue";
-import UiCard from "../../components/ui/Card.vue";
-import Button from "../../components/ui/Button.vue";
-import Select from "../../components/ui/Select.vue";
+import { computed, ref } from "vue";
+import { Button, Card, EmptyState, Select } from "../../components/ui";
 import { useAccounts } from "../../composables/useApi";
+import { formatDate } from "../../utils/format";
 
 const exporting = ref(false);
 const importing = ref(false);
-const importResult = ref(null);
-const selectedFile = ref(null);
-const fileInput = ref(null);
+
+const importResult = ref<{ imported: number; skipped: number; errors: number } | null>(null);
+const selectedFile = ref<File | null>(null);
+const fileInput = ref<HTMLInputElement | null>(null);
 
 const importType = ref("transactions");
 const importAccountId = ref("");
 const dateFormat = ref("DD/MM/YYYY");
 const skipDuplicates = ref(true);
 
+const exportFormat = ref("json");
+const exportOptions = ref({
+  includeCategories: true,
+  includeBudgets: true,
+  includeGoals: true,
+});
+
 const importTypeOptions = [
-  { value: "transactions", label: "Transactions (CSV/OFX)" },
-  { value: "accounts", label: "Accounts (CSV)" },
+  { value: "transactions", label: "Transações (CSV/OFX)" },
+  { value: "accounts", label: "Contas (CSV)" },
+];
+
+const exportFormatOptions = [
+  { value: "json", label: "JSON — completo, ideal para backup" },
+  { value: "csv", label: "CSV — compatível com planilhas" },
 ];
 
 const dateFormatOptions = [
-  { value: "DD/MM/YYYY", label: "DD/MM/YYYY" },
-  { value: "MM/DD/YYYY", label: "MM/DD/YYYY" },
-  { value: "YYYY-MM-DD", label: "YYYY-MM-DD" },
+  { value: "DD/MM/YYYY", label: "DD/MM/AAAA" },
+  { value: "MM/DD/YYYY", label: "MM/DD/AAAA" },
+  { value: "YYYY-MM-DD", label: "AAAA-MM-DD" },
 ];
+
+const importHistory = ref([
+  {
+    id: "1",
+    fileName: "extrato-janeiro.csv",
+    createdAt: "2024-02-01",
+    imported: 42,
+    skipped: 3,
+    errors: 0,
+  },
+]);
 
 const { data: accountsData } = useAccounts();
 
-const accountOptions = computed(() => 
-  [{ value: "", label: "Select account" }, ...(accountsData.value || []).map(acc => ({ value: acc.id, label: acc.name + " (" + acc.currency + ")" }))]
-);
+const accountOptions = computed(() => [
+  { value: "", label: "Selecione uma conta" },
+  ...(accountsData.value || []).map((acc) => ({
+    value: acc.id,
+    label: `${acc.name} (${acc.currency})`,
+  })),
+]);
 
-function onFileSelect(event) {
-  const target = event.target;
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function onFileSelect(event: Event) {
+  const target = event.target as HTMLInputElement;
   if (target.files && target.files[0]) {
     selectedFile.value = target.files[0];
   }
 }
 
-async function exportData(type) {
+async function exportData(type: string) {
   exporting.value = true;
   try {
-    // TODO: Implement export API call
-    alert("Exporting " + type + "... (not implemented yet)");
+    // TODO: Implementar exportação
+    alert(`Exportando ${type}... (ainda não implementado)`);
   } catch (error) {
-    alert("Export failed: " + error.message);
+    alert("Falha ao exportar: " + (error as Error).message);
   } finally {
     exporting.value = false;
   }
@@ -150,35 +331,33 @@ async function exportData(type) {
 
 async function onImport() {
   if (!selectedFile.value) {
-    alert("Please select a file");
+    alert("Selecione um arquivo para importar.");
     return;
   }
   if (!importAccountId.value && importType.value === "transactions") {
-    alert("Please select an account");
+    alert("Selecione a conta padrão das transações importadas.");
     return;
   }
 
   importing.value = true;
   try {
-    // TODO: Implement import API call
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    importResult.value = {
+    // TODO: Implementar importação
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    importResult.value = { imported: 42, skipped: 3, errors: 0 };
+    importHistory.value.unshift({
+      id: String(importHistory.value.length + 1),
+      fileName: selectedFile.value.name,
+      createdAt: new Date().toISOString(),
       imported: 42,
       skipped: 3,
       errors: 0,
-    };
+    });
     selectedFile.value = null;
     if (fileInput.value) fileInput.value.value = "";
   } catch (error) {
-    alert("Import failed: " + error.message);
+    alert("Falha ao importar: " + (error as Error).message);
   } finally {
     importing.value = false;
   }
-}
-
-function formatFileSize(bytes) {
-  if (bytes < 1024) return bytes + " B";
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
-  return (bytes / (1024 * 1024)).toFixed(1) + " MB";
 }
 </script>

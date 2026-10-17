@@ -85,6 +85,12 @@ enum InvestmentType {
   OTHER
 }
 
+enum InvoiceStatus {
+  OPEN
+  PARTIAL
+  PAID
+}
+
 model User {
   id             String    @id @default(cuid())
   email          String    @unique
@@ -112,6 +118,8 @@ model User {
   apiKeys        ApiKey[]
   webhooks       Webhook[]
   refreshTokens  RefreshToken[]
+  invoices       Invoice[]
+  notes          Note[]
 }
 
 model RefreshToken {
@@ -140,6 +148,7 @@ model Family {
   goals     Goal[]
   investments Investment[]
   webhooks  Webhook[]
+  invoices  Invoice[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -177,6 +186,15 @@ model Account {
   isActive        Boolean    @default(true)
   isDefault       Boolean    @default(false)
   metadata        Json?
+
+  // ===== CARTÃO DE CRÉDITO =====
+  // Só preenchidos quando type = CREDIT. Definem a janela da fatura:
+  // compras entre o fechamento anterior e `closingDay` entram na fatura que
+  // vence em `dueDay`.
+  closingDay      Int?
+  dueDay          Int?
+  creditLimit     Decimal?   @db.Decimal(19, 4)
+
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 
@@ -186,6 +204,7 @@ model Account {
   recurringTransactions RecurringTransaction[]
   goals           Goal[]
   investments     Investment[]
+  invoices        Invoice[]
   @@index([userId, isActive])
   @@index([currency])
 }
@@ -242,15 +261,93 @@ model Transaction {
   recurrence      RecurringTransaction? @relation(fields: [recurrenceId], references: [id], onDelete: SetNull)
   investmentId    String?
   investment      Investment?       @relation(fields: [investmentId], references: [id], onDelete: SetNull)
+
+  // Identidade visual da despesa. Picking um ícone e uma cor predefinida no
+  // formulário torna o lançamento reconhecível na lista sem depender da
+  // categoria — que nem sempre existe.
+  icon            String?
+  color           String?
+
+  // Quando a despesa foi de fato quitada.
+  //
+  // Vale para os dois caminhos de pagamento: a conta comum marcada como "a
+  // pagar" e a compra de cartão paga pela fatura. Um campo só, senão a
+  // interface teria que adivinhar qual dos dois está em uso.
+  paidAt          DateTime?
+  paymentId       String?
+  payment         Transaction?   @relation("TransactionPayments", fields: [paymentId], references: [id], onDelete: SetNull)
+
   metadata        Json?
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 
   @@index([userId, date])
+  @@index([userId, status])
   @@index([userId, accountId, date])
   @@index([userId, categoryId])
   @@index([familyId, date])
   @@index([date])
+
+  // Transferência gerada ao pagar uma fatura
+  invoicePayments Invoice[] @relation("InvoicePayment")
+  // Transferência gerada ao pagar uma despesa avulsa
+  settledBy       Transaction[]  @relation("TransactionPayments")
+}
+
+// Lembrete pessoal do usuário, mostrado na tela inicial. Não tem relação com
+// faturas — é o post-it / anotação rápida que fica no início.
+model Note {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content   String
+  // Cor do post-it (hex) ou null para o estilo de campo comum.
+  color     String?
+  pinned    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, createdAt])
+}
+
+// Fatura de cartão de crédito.
+//
+// A linha NÃO guarda o total da fatura: o total é sempre recalculado a partir
+// das transações dentro da janela `[periodStart, periodEnd]`. Assim uma compra
+// lançada depois do fechamento continua aparecendo na fatura correta sem
+// precisar de trigger ou job de consolidação.
+//
+// O que persiste é apenas o pagamento: `paidTotal`, `paidAt` e a referência
+// para a transferência gerada (`paymentTransactionId`).
+model Invoice {
+  id           String        @id @default(cuid())
+  userId       String
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  familyId     String?
+  family       Family?       @relation(fields: [familyId], references: [id], onDelete: SetNull)
+  accountId    String
+  account      Account       @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  // Mês de fechamento no formato "YYYY-MM" — um por cartão.
+  reference    String
+  // Início e fim da janela de compras (inclusivo).
+  periodStart  DateTime
+  periodEnd    DateTime
+  closingDate  DateTime
+  dueDate      DateTime
+
+  paidTotal    Decimal       @default(0) @db.Decimal(19, 4)
+  status       InvoiceStatus @default(OPEN)
+  paidAt       DateTime?
+  paymentTransactionId String?
+  paymentTransaction   Transaction? @relation("InvoicePayment", fields: [paymentTransactionId], references: [id], onDelete: SetNull)
+
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@unique([accountId, reference])
+  @@index([userId, dueDate])
+  @@index([userId, status])
 }
 
 model RecurringTransaction {

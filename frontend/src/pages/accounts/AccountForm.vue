@@ -1,202 +1,359 @@
 <template>
-  <div class="min-h-screen bg-gray-50">
-    <div class="max-w-2xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
-      <div class="flex justify-between items-center mb-6">
-        <h1 class="text-2xl font-bold text-gray-900">{{ isEditing ? 'Edit Account' : 'Add New Account' }}</h1>
-        <router-link :to="{ name: 'accounts' }" class="text-primary-600 hover:text-primary-700">
-          Cancel
-        </router-link>
+  <div class="space-y-6 stagger-in">
+    <!-- Page header -->
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h1 class="font-display text-3xl text-[var(--color-fg)]">
+          {{ isEditing ? 'Editar conta' : 'Nova conta' }}
+        </h1>
+        <p class="mt-1 text-[var(--color-fg-muted)]">
+          {{ isEditing
+            ? 'Atualize os dados desta conta bancária'
+            : 'Adicione uma conta bancária, carteira ou cartão' }}
+        </p>
       </div>
+      <Button variant="ghost" @click="router.push('/accounts')">
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l7-7m0 0l-7-7m7 7H3" />
+        </svg>
+        Cancelar
+      </Button>
+    </div>
 
-      <Card>
-        <form @submit.prevent="onSubmit" class="space-y-6">
+    <Card padding="lg">
+      <form class="space-y-6" @submit.prevent="onSubmit">
+        <Input
+          id="account-name"
+          v-model="form.name"
+          label="Nome da conta"
+          placeholder="Ex: Banco do Brasil, Carteira, Cartão Nubank"
+          autocomplete="off"
+          required
+          :error="errors.name"
+        />
+
+        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+          <Select
+            id="account-type"
+            v-model="form.type"
+            label="Tipo"
+            :options="accountTypes"
+            required
+            :error="errors.type"
+          />
+
+          <Select
+            id="account-currency"
+            v-model="form.currency"
+            label="Moeda"
+            :options="currencyOptions"
+            :error="errors.currency"
+          />
+        </div>
+
+        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+          <Input
+            id="account-balance"
+            v-model="form.initialBalance"
+            label="Saldo inicial"
+            type="number"
+            step="0.01"
+            placeholder="0,00"
+            :error="errors.initialBalance"
+            hint="Valor da conta antes das transações registradas"
+          />
+
+          <Input
+            id="account-institution"
+            v-model="form.institution"
+            label="Instituição"
+            placeholder="Ex: Banco do Brasil, Nubank, XP"
+          />
+        </div>
+
+        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
           <div>
-            <label for="name" class="block text-sm font-medium text-gray-700 mb-1">Account Name</label>
-            <Input
-              id="name"
-              v-model="form.name"
-              type="text"
-              required
-              autocomplete="off"
-              placeholder="e.g., Checking Account"
-            />
-          </div>
-
-          <div>
-            <label for="type" class="block text-sm font-medium text-gray-700 mb-1">Account Type</label>
-            <Select
-              id="type"
-              v-model="form.type"
-              :options="accountTypes"
-              required
-            />
-          </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label for="currency" class="block text-sm font-medium text-gray-700 mb-1">Currency</label>
-              <Select
-                id="currency"
-                v-model="form.currency"
-                :options="currencyOptions"
+            <label for="account-color" class="label">Cor da conta</label>
+            <div class="flex items-center gap-3">
+              <input
+                id="account-color"
+                v-model="form.color"
+                type="color"
+                class="h-10 w-16 cursor-pointer rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-1"
               />
+              <span class="font-mono text-sm text-[var(--color-fg-muted)]">{{ form.color }}</span>
+            </div>
+          </div>
+
+          <Input
+            id="account-icon"
+            v-model="form.icon"
+            label="Ícone"
+            placeholder="🏦 ou account_balance"
+          />
+        </div>
+
+        <!-- Só cartão tem fechamento, vencimento e limite -->
+        <div
+          v-if="form.type === 'CREDIT'"
+          class="space-y-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-muted)] p-4"
+        >
+          <div class="flex items-start gap-2.5">
+            <span class="mt-0.5 shrink-0 text-[var(--color-brand)]">
+              <AppIcon name="creditCard" :size="18" />
+            </span>
+            <div class="min-w-0">
+              <p class="text-sm font-medium text-[var(--color-fg)]">Fechamento e vencimento</p>
+              <p class="mt-0.5 text-xs text-[var(--color-fg-muted)]">
+                Usamos esses dias para agrupar as compras em faturas e avisar antes do vencimento.
+              </p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div>
+              <label for="account-closing-day" class="label">Fecha no dia</label>
+              <select
+                id="account-closing-day"
+                v-model.number="form.closingDay"
+                class="input-base"
+                :class="{ error: errors.closingDay }"
+              >
+                <option v-for="day in days" :key="day" :value="day">Dia {{ day }}</option>
+              </select>
+              <p v-if="errors.closingDay" class="error-text">{{ errors.closingDay }}</p>
             </div>
 
             <div>
-              <label for="balance" class="block text-sm font-medium text-gray-700 mb-1">Initial Balance</label>
-              <Input
-                id="balance"
-                v-model.number="form.balance"
-                type="number"
-                step="0.01"
-                placeholder="0.00"
-              />
+              <label for="account-due-day" class="label">Vence no dia</label>
+              <select
+                id="account-due-day"
+                v-model.number="form.dueDay"
+                class="input-base"
+                :class="{ error: errors.dueDay }"
+              >
+                <option v-for="day in days" :key="day" :value="day">Dia {{ day }}</option>
+              </select>
+              <p v-if="errors.dueDay" class="error-text">{{ errors.dueDay }}</p>
             </div>
-          </div>
 
-          <div>
-            <label for="color" class="block text-sm font-medium text-gray-700 mb-1">Color</label>
             <Input
-              id="color"
-              v-model="form.color"
-              type="color"
-              class="h-10 w-full p-1 border border-gray-300 rounded-lg cursor-pointer"
+              id="account-credit-limit"
+              v-model="form.creditLimit"
+              label="Limite"
+              type="number"
+              step="0.01"
+              min="0"
+              inputmode="decimal"
+              placeholder="0,00"
+              hint="Opcional. Mostra quanto do limite está comprometido."
             />
           </div>
 
-          <div>
-            <label for="icon" class="block text-sm font-medium text-gray-700 mb-1">Icon (emoji or icon name)</label>
-            <Input
-              id="icon"
-              v-model="form.icon"
-              type="text"
-              placeholder="🏦 or account_balance"
-            />
-          </div>
+          <p v-if="closingPreview" class="text-xs text-[var(--color-fg-muted)]">
+            {{ closingPreview }}
+          </p>
+        </div>
 
-          <div>
-            <label for="institution" class="block text-sm font-medium text-gray-700 mb-1">Institution</label>
-            <Input
-              id="institution"
-              v-model="form.institution"
-              type="text"
-              placeholder="Bank name (optional)"
-            />
-          </div>
-
-          <div class="flex items-center">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <label class="flex cursor-pointer items-center gap-2">
             <input
-              id="isActive"
+              id="account-default"
+              v-model="form.isDefault"
+              type="checkbox"
+              class="h-4 w-4 rounded border-[var(--color-border)] text-[var(--color-brand)] focus:ring-[var(--color-brand)] focus:ring-offset-2 transition-colors"
+            />
+            <span class="text-sm text-[var(--color-fg-muted)]">Conta padrão</span>
+          </label>
+
+          <label class="flex cursor-pointer items-center gap-2">
+            <input
+              id="account-active"
               v-model="form.isActive"
               type="checkbox"
-              class="h-4 w-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+              class="h-4 w-4 rounded border-[var(--color-border)] text-[var(--color-brand)] focus:ring-[var(--color-brand)] focus:ring-offset-2 transition-colors"
             />
-            <label for="isActive" class="ml-2 block text-sm text-gray-700">Active</label>
-          </div>
+            <span class="text-sm text-[var(--color-fg-muted)]">Ativa</span>
+          </label>
+        </div>
 
-          <div class="flex justify-end space-x-3 pt-4 border-t">
-            <router-link :to="{ name: 'accounts' }" class="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
-              Cancel
-            </router-link>
-            <button
-              type="submit"
-              :disabled="saving"
-              class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50"
-            >
-              <span v-if="saving">Saving...</span>
-              <span v-else>{{ isEditing ? 'Update Account' : 'Create Account' }}</span>
-            </button>
-          </div>
-        </form>
-      </Card>
-    </div>
+        <div
+          v-if="submitError"
+          class="rounded-lg border border-[var(--color-danger-muted)] bg-[var(--color-danger-light)] p-3 text-sm text-[var(--color-danger)]"
+          role="alert"
+        >
+          {{ submitError }}
+        </div>
+
+        <div class="flex justify-end gap-3 border-t border-[var(--color-border)] pt-4">
+          <Button variant="ghost" type="button" @click="router.push('/accounts')">Cancelar</Button>
+          <Button type="submit" :loading="saving">
+            {{ isEditing ? 'Salvar alterações' : 'Criar conta' }}
+          </Button>
+        </div>
+      </form>
+    </Card>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from "vue";
+import { computed, reactive, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { useAccounts, useCreateAccount, useUpdateAccount } from "../../composables/useApi";
-import Card from "../../components/ui/Card.vue";
-import Input from "../../components/ui/Input.vue";
-import Select from "../../components/ui/Select.vue";
+import { useAccount, useCreateAccount, useUpdateAccount } from "../../composables/useApi";
+import type { Account } from "../../composables/useApi";
+import { AppIcon, Button, Card, Input, Select } from "../../components/ui";
 
 const route = useRoute();
 const router = useRouter();
-const isEditing = computed(() => route.params.id !== undefined);
-const accountId = route.params.id as string;
 
-const { mutateAsync: createAccount } = useCreateAccount();
-const { mutateAsync: updateAccount } = useUpdateAccount();
+const isEditing = computed(() => route.params.id !== undefined);
+const accountId = computed(() => (route.params.id as string) || "");
+
+const createMutation = useCreateAccount();
+const updateMutation = useUpdateAccount();
+const accountQuery = useAccount(accountId.value);
 
 const saving = ref(false);
+const submitError = ref("");
 
-const form = ref({
+const form = reactive({
   name: "",
   type: "CHECKING",
   currency: "BRL",
-  balance: 0,
-  initialBalance: 0,
-  color: "#3B82F6",
-  icon: "",
+  initialBalance: "" as string,
   institution: "",
+  color: "#0e6e63",
+  icon: "",
   isActive: true,
+  isDefault: false,
+  closingDay: 25 as number,
+  dueDay: 5 as number,
+  creditLimit: "" as string,
 });
 
+const errors = reactive({
+  name: "",
+  type: "",
+  currency: "",
+  initialBalance: "",
+  closingDay: "",
+  dueDay: "",
+});
+
+const days = Array.from({ length: 31 }, (_, index) => index + 1);
+
 const accountTypes = [
-  { value: "CHECKING", label: "Checking" },
-  { value: "SAVINGS", label: "Savings" },
-  { value: "CREDIT", label: "Credit Card" },
-  { value: "INVESTMENT", label: "Investment" },
-  { value: "CRYPTO", label: "Crypto" },
-  { value: "CASH", label: "Cash" },
-  { value: "OTHER", label: "Other" },
+  { value: "CHECKING", label: "Conta Corrente" },
+  { value: "SAVINGS", label: "Poupança" },
+  { value: "CREDIT", label: "Cartão de Crédito" },
+  { value: "INVESTMENT", label: "Investimento" },
+  { value: "CRYPTO", label: "Criptomoedas" },
+  { value: "CASH", label: "Dinheiro" },
+  { value: "OTHER", label: "Outro" },
 ];
 
 const currencyOptions = [
-  { value: "BRL", label: "BRL - Brazilian Real" },
-  { value: "USD", label: "USD - US Dollar" },
+  { value: "BRL", label: "BRL - Real" },
+  { value: "USD", label: "USD - Dólar" },
   { value: "EUR", label: "EUR - Euro" },
-  { value: "GBP", label: "GBP - British Pound" },
+  { value: "GBP", label: "GBP - Libra" },
 ];
 
+watch(
+  () => accountQuery.data.value,
+  (account) => {
+    if (!account) return;
+    applyAccount(account);
+  },
+  { immediate: true }
+);
+
+function applyAccount(account: Account) {
+  form.name = account.name ?? "";
+  form.type = account.type ?? "CHECKING";
+  form.currency = account.currency ?? "BRL";
+  form.initialBalance = String(account.initialBalance ?? 0);
+  form.institution = account.institution ?? "";
+  form.color = account.color || "#0e6e63";
+  form.icon = account.icon ?? "";
+  form.isActive = account.isActive ?? true;
+  form.isDefault = account.isDefault ?? false;
+  form.closingDay = account.closingDay ?? 25;
+  form.dueDay = account.dueDay ?? 5;
+  form.creditLimit = account.creditLimit ? String(account.creditLimit) : "";
+}
+
+/** Frase que mostra ao usuário a fatura que vai sair dos dias escolhidos. */
+const closingPreview = computed(() => {
+  if (form.type !== "CREDIT") return "";
+
+  const closing = form.closingDay;
+  const due = form.dueDay;
+  // Mesma regra do backend: vence no mesmo mês do fechamento quando o dia de
+  // vencimento é maior que o de fechamento; caso contrário, no mês seguinte.
+  const sameMonth = due > closing;
+
+  return sameMonth
+    ? `A fatura fecha no dia ${closing} e vence no dia ${due} do mesmo mês.`
+    : `A fatura fecha no dia ${closing} e vence no dia ${due} do mês seguinte.`;
+});
+
+function validate(): boolean {
+  errors.name = form.name.trim() ? "" : "Nome da conta é obrigatório";
+  errors.type = form.type ? "" : "Selecione um tipo";
+  errors.currency = form.currency ? "" : "Selecione uma moeda";
+  errors.initialBalance =
+    form.initialBalance === "" || form.initialBalance === null || form.initialBalance === undefined
+      ? "Saldo inicial é obrigatório"
+      : "";
+
+  errors.closingDay =
+    form.type === "CREDIT" && (!form.closingDay || form.closingDay < 1 || form.closingDay > 31)
+      ? "Escolha o dia de fechamento"
+      : "";
+  errors.dueDay =
+    form.type === "CREDIT" && (!form.dueDay || form.dueDay < 1 || form.dueDay > 31)
+      ? "Escolha o dia de vencimento"
+      : "";
+
+  return !Object.values(errors).some(Boolean);
+}
+
 async function onSubmit() {
-  if (!form.value.name) {
-    alert("Account name is required");
-    return;
-  }
+  submitError.value = "";
+
+  if (!validate()) return;
+
+  const isCredit = form.type === "CREDIT";
+
+  const payload = {
+    name: form.name.trim(),
+    type: form.type,
+    currency: form.currency,
+    initialBalance: Number(form.initialBalance || 0),
+    institution: form.institution.trim() || undefined,
+    color: form.color,
+    icon: form.icon.trim() || undefined,
+    isActive: form.isActive,
+    isDefault: form.isDefault,
+    // Enviados como null quando não é cartão para o backend limpar os campos.
+    closingDay: isCredit ? form.closingDay : null,
+    dueDay: isCredit ? form.dueDay : null,
+    creditLimit: isCredit && form.creditLimit ? Number(form.creditLimit) : null,
+  };
 
   saving.value = true;
   try {
     if (isEditing.value) {
-      await updateAccount({ id: accountId, data: form.value });
+      await updateMutation.mutateAsync({ id: accountId.value, data: payload });
     } else {
-      await createAccount(form.value);
+      await createMutation.mutateAsync(payload);
     }
-    router.push({ name: "accounts" });
-  } catch (error) {
-    alert("Failed to save account: " + (error as Error).message);
+    router.push("/accounts");
+  } catch (e: any) {
+    submitError.value = e?.response?.data?.error || "Não foi possível salvar a conta. Tente novamente.";
   } finally {
     saving.value = false;
   }
 }
-
-onMounted(async () => {
-  if (isEditing.value) {
-    try {
-      // Fetch account data
-      const response = await fetch(`/api/v1/accounts/${accountId}`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-        },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        form.value = { ...form.value, ...data.account };
-      }
-    } catch (error) {
-      console.error("Failed to load account:", error);
-    }
-  }
-});
 </script>

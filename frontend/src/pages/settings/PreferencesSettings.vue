@@ -1,135 +1,287 @@
-<template>
-  <div class="min-h-screen bg-gray-50">
-    <div class="max-w-2xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
-      <h1 class="text-2xl font-bold text-gray-900 mb-6">Preferences</h1>
-
-      <Card>
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">Currency & Locale</h2>
-        <div class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Default Currency</label>
-            <Select v-model="preferences.currency" :options="currencyOptions" />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Date Format</label>
-            <Select v-model="preferences.dateFormat" :options="dateFormatOptions" />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Number Format</label>
-            <Select v-model="preferences.numberFormat" :options="numberFormatOptions" />
-          </div>
-        </div>
-      </Card>
-
-      <Card class="mt-6">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">Notifications</h2>
-        <div class="space-y-4">
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="font-medium text-gray-900">Email Notifications</p>
-              <p class="text-sm text-gray-500">Receive email updates about your finances</p>
-            </div>
-            <input
-              type="checkbox"
-              v-model="preferences.emailNotifications"
-              class="h-5 w-5 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
-            />
-          </div>
-
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="font-medium text-gray-900">Budget Alerts</p>
-              <p class="text-sm text-gray-500">Get notified when approaching budget limits</p>
-            </div>
-            <input
-              type="checkbox"
-              v-model="preferences.budgetAlerts"
-              class="h-5 w-5 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
-            />
-          </div>
-
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="font-medium text-gray-900">Goal Reminders</p>
-              <p class="text-sm text-gray-500">Get reminded about your financial goals</p>
-            </div>
-            <input
-              type="checkbox"
-              v-model="preferences.goalReminders"
-              class="h-5 w-5 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
-            />
-          </div>
-        </div>
-      </Card>
-
-      <Card class="mt-6">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">Display</h2>
-        <div class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Theme</label>
-            <Select v-model="preferences.theme" :options="themeOptions" />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Compact Mode</label>
-            <input
-              type="checkbox"
-              v-model="preferences.compactMode"
-              class="h-5 w-5 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
-            />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Show Charts</label>
-            <input
-              type="checkbox"
-              v-model="preferences.showCharts"
-              class="h-5 w-5 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
-            />
-          </div>
-        </div>
-      </Card>
+﻿<template>
+  <div class="space-y-6 stagger-in">
+    <!-- Page header -->
+    <div>
+      <h1 class="font-display text-3xl text-[var(--color-fg)]">Preferências</h1>
+      <p class="mt-1 text-[var(--color-fg-muted)]">
+        Defina os formatos usados no app e quando você quer ser avisado sobre as faturas.
+      </p>
     </div>
+
+    <!-- Formatos -->
+    <Card title="Formatos" description="Como moeda, números e datas aparecem." padding="md">
+      <div class="space-y-4">
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <Select
+            id="preferences-theme"
+            :model-value="theme.preference.value"
+            label="Tema"
+            :options="themeOptions"
+            @update:model-value="theme.setTheme($event as ThemePreference)"
+          />
+
+          <Select
+            id="preferences-locale"
+            :model-value="preferences.locale"
+            label="Idioma"
+            :options="localeOptions"
+            hint="Usado nos números, nas datas e nos avisos."
+            @update:model-value="update('locale', $event)"
+          />
+        </div>
+
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <Select
+            id="preferences-currency"
+            :model-value="preferences.currency"
+            label="Moeda padrão"
+            :options="currencyOptions"
+            hint="Usada quando a conta não define a própria moeda."
+            @update:model-value="update('currency', $event)"
+          />
+
+          <Select
+            id="preferences-date-format"
+            v-model="draft.dateFormat"
+            label="Formato de data"
+            :options="dateFormatOptions"
+          />
+        </div>
+
+        <Select
+          id="preferences-number-format"
+          v-model="draft.numberFormat"
+          label="Formato de número"
+          :options="numberFormatOptions"
+        />
+
+        <p class="rounded-lg bg-[var(--color-bg-muted)] px-4 py-3 text-xs text-[var(--color-fg-muted)]">
+          Prévia de um valor:
+          <span class="font-semibold text-[var(--color-fg)]">{{ currencyPreview }}</span>
+        </p>
+
+        <router-link to="/settings/appearance" class="link text-sm">
+          Mudar cor, densidade e tamanho do texto
+        </router-link>
+      </div>
+    </Card>
+
+    <!-- Lembretes de fatura -->
+    <Card
+      title="Lembretes de fatura"
+      description="Avisos sobre as faturas dos seus cartões de crédito."
+      padding="md"
+    >
+      <div class="space-y-3">
+        <!-- Antecedência -->
+        <div class="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-muted)] p-4">
+          <div class="flex items-start justify-between gap-4">
+            <div class="min-w-0">
+              <p class="text-sm font-medium text-[var(--color-fg)]">Avisar com antecedência</p>
+              <p class="mt-0.5 text-xs text-[var(--color-fg-muted)]">
+                Quantos dias antes do vencimento o sino passa a mostrar a fatura.
+              </p>
+            </div>
+            <p class="shrink-0 text-sm font-semibold tabular-nums text-[var(--color-brand)]">
+              {{ preferences.invoiceReminderDays }} dias
+            </p>
+          </div>
+
+          <div
+            class="mt-3 flex flex-wrap gap-2"
+            role="radiogroup"
+            aria-label="Antecedência do aviso"
+          >
+            <button
+              v-for="option in reminderDayOptions"
+              :key="option"
+              type="button"
+              role="radio"
+              :aria-checked="preferences.invoiceReminderDays === option"
+              class="min-h-9 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors"
+              :class="
+                preferences.invoiceReminderDays === option
+                  ? 'border-[var(--color-brand)] bg-[var(--color-brand-light)] text-[var(--color-brand)]'
+                  : 'border-[var(--color-border)] bg-[var(--color-bg-elevated)] text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-muted)]'
+              "
+              @click="setInvoiceReminderDays(option)"
+            >
+              {{ option }}d
+            </button>
+          </div>
+        </div>
+
+        <!-- Dentro do app -->
+        <div
+          class="flex items-start justify-between gap-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-muted)] p-4"
+        >
+          <div class="min-w-0">
+            <p class="text-sm font-medium text-[var(--color-fg)]">Avisos dentro do app</p>
+            <p class="mt-0.5 text-xs text-[var(--color-fg-muted)]">
+              O sino no topo ganha um contador e um aviso aparece quando você entra.
+            </p>
+          </div>
+          <button
+            id="pref-in-app-notifications"
+            type="button"
+            role="switch"
+            :aria-checked="preferences.inAppNotifications"
+            aria-label="Avisos dentro do app"
+            class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors"
+            :class="preferences.inAppNotifications ? 'bg-[var(--color-brand)]' : 'bg-[var(--color-border-strong)]'"
+            @click="update('inAppNotifications', !preferences.inAppNotifications)"
+          >
+            <span
+              class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform"
+              :class="preferences.inAppNotifications ? 'translate-x-6' : 'translate-x-1'"
+            ></span>
+          </button>
+        </div>
+
+        <!-- Notificação do navegador -->
+        <div
+          class="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-muted)] p-4"
+        >
+          <div class="flex items-start justify-between gap-4">
+            <div class="min-w-0">
+              <p class="text-sm font-medium text-[var(--color-fg)]">Notificação do navegador</p>
+              <p class="mt-0.5 text-xs text-[var(--color-fg-muted)]">
+                Popup do próprio sistema, mesmo com outra aba aberta.
+              </p>
+            </div>
+            <button
+              id="pref-browser-notifications"
+              type="button"
+              role="switch"
+              :aria-checked="preferences.browserNotifications"
+              aria-label="Notificação do navegador"
+              class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+              :class="preferences.browserNotifications ? 'bg-[var(--color-brand)]' : 'bg-[var(--color-border-strong)]'"
+              :disabled="!isSupported"
+              @click="toggleBrowserNotifications"
+            >
+              <span
+                class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform"
+                :class="preferences.browserNotifications ? 'translate-x-6' : 'translate-x-1'"
+              ></span>
+            </button>
+          </div>
+
+          <p
+            v-if="!isSupported"
+            class="mt-2 text-xs text-[var(--color-fg-subtle)]"
+          >
+            Este navegador não suporta notificações. O aviso dentro do app continua funcionando.
+          </p>
+          <p
+            v-else-if="preferences.browserNotifications && permission === 'denied'"
+            class="mt-2 text-xs text-[var(--color-warning)]"
+          >
+            O navegador bloqueou as notificações deste site. Libere nas permissões do site para
+            receber os avisos.
+          </p>
+          <p
+            v-else-if="preferences.browserNotifications && permission === 'granted'"
+            class="mt-2 text-xs text-[var(--color-success)]"
+          >
+            Autorizado. Você vai receber o popup do sistema antes do vencimento.
+          </p>
+        </div>
+
+        <router-link to="/invoices" class="link text-sm">Ver faturas dos cartões</router-link>
+      </div>
+    </Card>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from "vue";
-import Card from "../../components/ui/Card.vue";
-import Select from "../../components/ui/Select.vue";
+import { computed, ref } from "vue";
+import { Card, Select } from "../../components/ui";
+import { usePreferences } from "../../composables/usePreferences";
+import { useNotifications } from "../../composables/useNotifications";
+import { useTheme, type ThemePreference } from "../../composables/useTheme";
+import { useToast } from "../../composables/useToast";
+import { formatCurrency } from "../../utils/format";
 
-const preferences = ref({
-  currency: "BRL",
+const { preferences, update, setInvoiceReminderDays } = usePreferences();
+const theme = useTheme();
+const { permission, isSupported, requestPermission } = useNotifications();
+const toast = useToast();
+
+const reminderDayOptions = [1, 3, 5, 7, 10, 14];
+
+// Formato de data e de número ainda não alimentam nenhuma tela — ficam como
+// rascunho local até existirem componentes que os consumam.
+const draft = ref({
   dateFormat: "DD/MM/YYYY",
   numberFormat: "pt-BR",
-  emailNotifications: true,
-  budgetAlerts: true,
-  goalReminders: true,
-  theme: "system",
-  compactMode: false,
-  showCharts: true,
 });
 
+const themeOptions = [
+  { value: "light", label: "Claro" },
+  { value: "dark", label: "Escuro" },
+  { value: "system", label: "Sistema" },
+];
+
+const localeOptions = [
+  { value: "pt-BR", label: "Português" },
+  { value: "en-US", label: "Inglês" },
+  { value: "es-ES", label: "Espanhol" },
+];
+
 const currencyOptions = [
-  { value: "BRL", label: "BRL - Brazilian Real" },
-  { value: "USD", label: "USD - US Dollar" },
-  { value: "EUR", label: "EUR - Euro" },
-  { value: "GBP", label: "GBP - British Pound" },
+  { value: "BRL", label: "BRL — Real Brasileiro" },
+  { value: "USD", label: "USD — Dólar Americano" },
+  { value: "EUR", label: "EUR — Euro" },
+  { value: "GBP", label: "GBP — Libra Esterlina" },
 ];
 
 const dateFormatOptions = [
-  { value: "DD/MM/YYYY", label: "DD/MM/YYYY" },
-  { value: "MM/DD/YYYY", label: "MM/DD/YYYY" },
-  { value: "YYYY-MM-DD", label: "YYYY-MM-DD" },
+  { value: "DD/MM/YYYY", label: "DD/MM/AAAA" },
+  { value: "MM/DD/YYYY", label: "MM/DD/AAAA" },
+  { value: "YYYY-MM-DD", label: "AAAA-MM-DD" },
 ];
 
 const numberFormatOptions = [
-  { value: "pt-BR", label: "1.234,56 (Brazil)" },
-  { value: "en-US", label: "1,234.56 (US)" },
-  { value: "de-DE", label: "1.234,56 (Germany)" },
+  { value: "pt-BR", label: "1.234,56 (Brasil)" },
+  { value: "en-US", label: "1,234.56 (Estados Unidos)" },
+  { value: "de-DE", label: "1.234,56 (Alemanha)" },
 ];
 
-const themeOptions = [
-  { value: "system", label: "System" },
-  { value: "light", label: "Light" },
-  { value: "dark", label: "Dark" },
-];
+const currencyPreview = computed(() =>
+  formatCurrency(1234.56, preferences.value.currency, draft.value.numberFormat)
+);
+
+/**
+ * O pedido de permissão só funciona dentro de um gesto do usuário — não dá para
+ * pedir quando o toggle é lido do storage no carregamento da página.
+ */
+async function toggleBrowserNotifications() {
+  if (preferences.value.browserNotifications) {
+    update("browserNotifications", false);
+    return;
+  }
+
+  if (permission.value === "denied") {
+    toast.warning(
+      "O navegador está bloqueando as notificações deste site. Libere nas permissões e recarregue a página.",
+      "Permissão negada"
+    );
+    return;
+  }
+
+  const result = await requestPermission();
+
+  if (result === "granted") {
+    update("browserNotifications", true);
+    toast.success("Você será avisado antes do vencimento das faturas.");
+  } else if (result === "unsupported") {
+    toast.warning("Este navegador não suporta notificações.", "Não disponível");
+  } else {
+    toast.warning(
+      "Sem autorização, o aviso continua aparecendo no sino do app.",
+      "Permissão não concedida"
+    );
+  }
+}
 </script>

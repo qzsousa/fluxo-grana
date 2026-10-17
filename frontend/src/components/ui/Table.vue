@@ -7,11 +7,11 @@
             v-for="col in columns"
             :key="col.key"
             :class="[
-              'px-4 py-3 text-left font-medium text-[var(--color-fg-muted)] uppercase tracking-wider text-xs',
-              col.align ? `text-${col.align}` : '',
-              col.width ? `w-[${col.width}]` : '',
+              'px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[var(--color-fg-muted)]',
+              alignClasses[col.align || 'left'],
+              col.width ? widthClasses[col.width] || '' : '',
             ]"
-            :style="{ minWidth: col.minWidth }"
+            :style="col.minWidth ? { minWidth: col.minWidth } : undefined"
             scope="col"
           >
             <div class="flex items-center gap-2">
@@ -32,23 +32,16 @@
         <tr
           v-for="(row, rowIndex) in data"
           :key="rowKey(row)"
-          :class="[
-            'transition-colors',
-            'hover:bg-[var(--color-bg-muted)]',
-            rowIndex % 2 === 0 ? 'bg-[var(--color-bg)]' : 'bg-[var(--color-bg-elevated)]',
-          ]"
+          class="transition-colors hover:bg-[var(--color-bg-muted)]"
         >
           <td
             v-for="col in columns"
             :key="col.key"
-            :class="[
-              'px-4 py-3',
-              col.align ? `text-${col.align}` : '',
-            ]"
+            :class="['px-4 py-3', alignClasses[col.align || 'left']]"
           >
             <slot :name="col.key" :row="row" :index="rowIndex">
-              <span v-if="col.format" :class="col.formatClass">{{ col.format(row[col.key]) }}</span>
-              <span v-else>{{ row[col.key] }}</span>
+              <span v-if="col.format" :class="col.formatClass">{{ col.format(cell(row, col.key)) }}</span>
+              <span v-else>{{ cell(row, col.key) }}</span>
             </slot>
           </td>
         </tr>
@@ -75,12 +68,11 @@
   />
 </template>
 
-<script setup lang="ts">
-import { computed } from "vue";
+<script setup lang="ts" generic="T extends Record<string, any>">
 import { Pagination } from "./index";
 import EmptyState from "./EmptyState.vue";
 
-interface Column<T = Record<string, unknown>> {
+interface Column {
   key: string;
   label: string;
   align?: "left" | "center" | "right";
@@ -99,8 +91,8 @@ interface PaginationData {
 
 interface Props {
   columns: Column[];
-  data: Record<string, unknown>[];
-  rowKey: (row: Record<string, unknown>) => string | number;
+  data: T[];
+  rowKey: (row: T) => string | number;
   pagination?: PaginationData;
   emptyIcon?: string;
   emptyTitle?: string;
@@ -108,12 +100,35 @@ interface Props {
   emptyAction?: { label: string; onClick: () => void };
 }
 
-const props = withDefaults(defineProps<Props>(), {
+const emit = defineEmits<{ "page-change": [page: number]; "limit-change": [limit: number] }>();
+
+withDefaults(defineProps<Props>(), {
   emptyIcon: "table",
   emptyTitle: "Nenhum registro encontrado",
   emptyDescription: "Comece adicionando um novo item.",
-  rowKey: (row) => row.id,
+  rowKey: (row: Record<string, unknown>) => row.id as string | number,
 });
 
-defineEmits<{ "page-change": [page: number]; "limit-change": [limit: number] }>();
+/** Acesso por chave sem brigar com o tipo genérico da linha. */
+function cell(row: T, key: string): unknown {
+  return (row as Record<string, unknown>)[key];
+}
+
+// Classes precisam ser literais para o Tailwind conseguir detectá-las —
+// interpolar (`text-${align}`) geraria nada no CSS final.
+const alignClasses: Record<string, string> = {
+  left: "text-left",
+  center: "text-center",
+  right: "text-right",
+};
+
+const widthClasses: Record<string, string> = {
+  "10%": "w-[10%]",
+  "15%": "w-[15%]",
+  "20%": "w-[20%]",
+  "25%": "w-[25%]",
+  "30%": "w-[30%]",
+  "40%": "w-[40%]",
+  "50%": "w-1/2",
+};
 </script>

@@ -26,8 +26,12 @@ export async function createAccount(req: Request, res: Response) {
     throw new UnauthorizedError("Not authenticated");
   }
 
-  const { name, type, currency, balance, initialBalance, color, icon, institution } =
+  const { name, type, currency, balance, initialBalance, color, icon, institution, closingDay, dueDay, creditLimit } =
     req.body;
+
+  // O saldo nasce do saldo inicial: é o que o formulário manda e o que a
+  // pessoa espera ver na conta. Sem isso toda conta nova abre em zero.
+  const startingBalance = initialBalance ?? 0;
 
   const account = await prisma.account.create({
     data: {
@@ -35,11 +39,15 @@ export async function createAccount(req: Request, res: Response) {
       name,
       type,
       currency: currency || "BRL",
-      balance: balance !== undefined ? balance : 0,
-      initialBalance: initialBalance || 0,
+      balance: balance !== undefined ? balance : startingBalance,
+      initialBalance: startingBalance,
       color: color || "#3B82F6",
       icon,
       institution,
+      // Só fazem sentido em cartão; o resto dos tipos ignora.
+      closingDay: type === "CREDIT" ? closingDay ?? null : null,
+      dueDay: type === "CREDIT" ? dueDay ?? null : null,
+      creditLimit: type === "CREDIT" ? creditLimit ?? null : null,
     },
   });
 
@@ -75,8 +83,19 @@ export async function updateAccount(req: Request, res: Response) {
     throw new UnauthorizedError("Not authenticated");
   }
 
-  const { name, type, currency, balance, color, icon, institution, isActive } =
-    req.body;
+  const {
+    name,
+    type,
+    currency,
+    balance,
+    color,
+    icon,
+    institution,
+    isActive,
+    closingDay,
+    dueDay,
+    creditLimit,
+  } = req.body;
 
   const existingAccount = await prisma.account.findUnique({
     where: { id, userId },
@@ -85,6 +104,15 @@ export async function updateAccount(req: Request, res: Response) {
   if (!existingAccount) {
     throw new NotFoundError("Account not found");
   }
+
+  // O tipo pode não vir no update; decide pelos campos de cartão se a conta é
+  // cartão no estado final, e limpa tudo quando deixa de ser.
+  const nextType = type ?? existingAccount.type;
+  const isCredit = nextType === "CREDIT";
+
+  // `null` explícito significa "limpe este campo"; campo ausente significa
+  // "não mexe". Sem essa distinção, limpar o limite seria impossível.
+  const sent = (key: string) => Object.prototype.hasOwnProperty.call(req.body, key);
 
   const account = await prisma.account.update({
     where: { id, userId },
@@ -97,6 +125,13 @@ export async function updateAccount(req: Request, res: Response) {
       icon,
       institution,
       isActive,
+      closingDay: isCredit ? (sent("closingDay") ? closingDay ?? null : existingAccount.closingDay) : null,
+      dueDay: isCredit ? (sent("dueDay") ? dueDay ?? null : existingAccount.dueDay) : null,
+      creditLimit: isCredit
+        ? sent("creditLimit")
+          ? creditLimit ?? null
+          : existingAccount.creditLimit
+        : null,
     },
   });
 

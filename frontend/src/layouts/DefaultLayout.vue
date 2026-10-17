@@ -1,134 +1,229 @@
 <template>
-  <div class="min-h-screen bg-[var(--color-bg)] text-[var(--color-fg)] font-body antialiased">
-    <!-- Mobile overlay -->
-    <Transition name="fade">
-      <div
-        v-if="sidebarOpen"
-        class="fixed inset-0 z-[var(--z-fixed)] bg-black/30 backdrop-blur-sm lg:hidden"
-        aria-hidden="true"
-        @click="sidebarOpen = false"
-      ></div>
-    </Transition>
-
-    <!-- Sidebar -->
+  <div class="min-h-dvh bg-[var(--color-bg)] text-[var(--color-fg)]">
+    <!-- ================= DESKTOP: menu lateral ================= -->
     <aside
-      class="fixed inset-y-0 left-0 z-[var(--z-fixed)] w-64 bg-[var(--color-bg-elevated)] border-r border-[var(--color-border)] flex flex-col transform transition-transform duration-300 ease-out lg:translate-x-0"
-      :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'"
-      :aria-hidden="!sidebarOpen"
+      class="fixed inset-y-0 left-0 z-[var(--z-fixed)] hidden w-64 flex-col border-r border-[var(--color-border)] bg-[var(--color-bg-elevated)] lg:flex"
     >
-      <!-- Brand -->
-      <div class="h-16 flex items-center justify-between px-5 border-b border-[var(--color-border)]">
-        <router-link to="/dashboard" class="flex items-center gap-3" @click="sidebarOpen = false">
-          <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-brand">
-            <svg class="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.863.863c.881.881 2.302.881 3.182 0l2.414-2.414M21 12H3" />
-            </svg>
-          </span>
-          <span class="font-display text-xl text-[var(--color-fg)]">Finanças</span>
-        </router-link>
-        <button
-          class="lg:hidden rounded-lg p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-muted)] transition-colors"
-          aria-label="Fechar menu"
-          @click="sidebarOpen = false"
-        >
-          <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      </div>
+      <router-link
+        to="/dashboard"
+        class="flex items-center gap-2.5 px-5 py-5 text-lg font-semibold tracking-tight"
+      >
+        <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--color-brand)] text-[var(--color-on-brand)]">
+          <AppIcon name="trending" :size="18" :stroke-width="2" />
+        </span>
+        <BrandName />
+      </router-link>
 
-      <!-- Navigation -->
-      <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-6" aria-label="Navegação principal">
-        <div v-for="group in navGroups" :key="group.label" class="stagger-in">
-          <p class="px-3 mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--color-fg-subtle)]">
+      <nav class="flex-1 overflow-y-auto px-3 pb-4" aria-label="Navegação principal">
+        <div v-for="group in navGroups" :key="group.label" class="mb-5">
+          <p class="mb-1 px-3 text-xs font-semibold uppercase tracking-wide text-[var(--color-fg-subtle)]">
             {{ group.label }}
           </p>
           <router-link
             v-for="item in group.items"
             :key="item.to"
             :to="item.to"
-            class="nav-link flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-muted)] hover:text-[var(--color-fg)] transition-colors"
-            :class="{
-              'bg-[var(--color-brand-light)] text-[var(--color-brand)]': isActive(item.to),
-            }"
-            @click="sidebarOpen = false"
+            :data-tour="tourAnchor(item.to)"
+            class="nav-item"
+            :class="isActive(item.to) ? 'nav-item-active' : ''"
           >
-            <span class="inline-flex h-8 w-8 items-center justify-center rounded-lg" :class="item.iconBg">
-              <component :is="item.icon" :class="['h-5 w-5', isActive(item.to) ? 'text-[var(--color-brand)]' : 'text-[var(--color-fg-muted)]']" aria-hidden="true" />
-            </span>
-            {{ item.label }}
-            <span v-if="item.badge" class="ml-auto badge badge-info text-xs">{{ item.badge }}</span>
+            <AppIcon :name="item.icon" :size="19" class="shrink-0" />
+            <span class="truncate">{{ item.label }}</span>
+            <span v-if="item.badge" class="badge badge-neutral ml-auto">{{ item.badge }}</span>
           </router-link>
         </div>
       </nav>
 
-      <!-- User footer -->
-      <div class="border-t border-[var(--color-border)] p-4">
-        <div class="flex items-center gap-3 mb-3">
-          <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--color-brand-light)] text-[var(--color-brand)] text-sm font-semibold">
+      <div class="border-t border-[var(--color-border)] p-3">
+        <div class="flex items-center gap-2.5 rounded-xl px-2 py-2">
+          <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-brand-light)] text-sm font-semibold text-[var(--color-brand)]">
             {{ userInitial }}
           </span>
           <div class="min-w-0 flex-1">
-            <p class="truncate text-sm font-medium text-[var(--color-fg)]">{{ userName }}</p>
+            <p class="truncate text-sm font-medium">{{ userName }}</p>
             <p class="truncate text-xs text-[var(--color-fg-muted)]">{{ userEmail }}</p>
           </div>
-        </div>
-        <div class="flex gap-2">
-          <router-link to="/settings" class="nav-link flex-1 justify-center px-3 py-2 text-sm">
-            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-            Configurações
-          </router-link>
           <button
-            class="nav-link flex-1 justify-center px-3 py-2 text-sm text-[var(--color-danger)] hover:bg-[var(--color-danger-light)]"
+            class="flex h-9 w-9 items-center justify-center rounded-lg text-[var(--color-fg-subtle)] transition-colors hover:bg-[var(--color-bg-muted)] hover:text-[var(--color-danger)]"
+            aria-label="Sair"
             @click="logout"
-            title="Sair"
           >
-            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
-            Sair
+            <AppIcon name="logout" :size="18" />
           </button>
         </div>
       </div>
     </aside>
 
-    <!-- Main column -->
-    <div class="lg:pl-64 flex min-h-screen flex-col">
-      <!-- Mobile header -->
-      <header class="sticky top-0 z-[var(--z-sticky)] flex h-16 items-center gap-4 border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-4 lg:hidden glass">
-        <button
-          class="rounded-lg p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-muted)] transition-colors"
-          aria-label="Abrir menu"
-          @click="sidebarOpen = true"
-        >
-          <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        </button>
-        <span class="font-display text-lg text-[var(--color-fg)]">Finanças</span>
+    <!-- ================= COLUNA PRINCIPAL ================= -->
+    <div class="flex min-h-dvh flex-col lg:pl-64">
+      <!-- Topo: compacto no celular, completo no desktop -->
+      <header
+        class="sticky top-0 z-[var(--z-sticky)] flex h-14 items-center gap-3 border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-4 sm:px-6 lg:h-16 lg:px-8"
+      >
+        <router-link to="/dashboard" class="flex items-center gap-2 font-semibold tracking-tight lg:hidden">
+          <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--color-brand)] text-[var(--color-on-brand)]">
+            <AppIcon name="trending" :size="16" :stroke-width="2" />
+          </span>
+          <BrandName />
+        </router-link>
+
+        <div class="ml-auto flex items-center gap-2">
+          <div data-tour="theme">
+            <ThemeToggle />
+          </div>
+          <NotificationBell />
+
+          <!-- No desktop não existe a barra inferior, então o atalho de novo
+               lançamento vive aqui. O mesmo data-tour da barra móvel; o tour
+               escolhe o que estiver visível na tela. -->
+          <router-link
+            to="/transactions/new"
+            data-tour="new-transaction"
+            class="hidden h-9 items-center gap-1.5 rounded-lg bg-[var(--color-brand)] px-3 text-sm font-semibold text-[var(--color-on-brand)] shadow-[var(--shadow-brand)] transition-colors hover:bg-[var(--color-brand-hover)] lg:flex"
+          >
+            <AppIcon name="plus" :size="16" :stroke-width="2.4" />
+            Nova transação
+          </router-link>
+
+          <router-link
+            to="/settings"
+            class="hidden h-9 items-center gap-2 rounded-lg px-2 text-sm font-medium text-[var(--color-fg-muted)] transition-colors hover:bg-[var(--color-bg-muted)] hover:text-[var(--color-fg)] lg:flex"
+          >
+            <AppIcon name="sliders" :size="18" />
+            Configurações
+          </router-link>
+          <span
+            class="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-brand-light)] text-sm font-semibold text-[var(--color-brand)] lg:hidden"
+            aria-hidden="true"
+          >
+            {{ userInitial }}
+          </span>
+        </div>
       </header>
 
-      <!-- Page content -->
-      <main class="flex-1 p-4 md:p-6 lg:p-8">
-        <div class="mx-auto max-w-[1400px]">
+      <!-- Conteúdo: espaço extra embaixo por causa da barra inferior -->
+      <main class="flex-1 px-4 pb-28 pt-5 sm:px-6 lg:px-8 lg:pb-12">
+        <div class="mx-auto max-w-[1200px]">
           <slot />
         </div>
       </main>
+
+      <!-- ================= MOBILE: barra inferior ================= -->
+      <nav
+        class="fixed inset-x-0 bottom-0 z-[var(--z-fixed)] border-t border-[var(--color-border)] bg-[var(--color-bg-elevated)] safe-bottom lg:hidden"
+        aria-label="Navegação principal"
+      >
+        <div class="grid grid-cols-5 items-center">
+          <router-link
+            v-for="tab in tabs.left"
+            :key="tab.to"
+            :to="tab.to"
+            class="flex min-h-14 flex-col items-center justify-center gap-1 px-1 text-[0.6875rem] font-medium transition-colors"
+            :class="isActive(tab.to) ? 'text-[var(--color-brand)]' : 'text-[var(--color-fg-subtle)]'"
+          >
+            <AppIcon :name="tab.icon" :size="22" :stroke-width="isActive(tab.to) ? 2.1 : 1.7" />
+            <span>{{ tab.label }}</span>
+          </router-link>
+
+          <!-- Atalho principal: registrar transação -->
+          <router-link
+            to="/transactions/new"
+            data-tour="new-transaction"
+            class="flex min-h-14 items-center justify-center"
+            aria-label="Nova transação"
+          >
+            <span class="-mt-6 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--color-brand)] text-[var(--color-on-brand)] shadow-[var(--shadow-brand)] ring-4 ring-[var(--color-bg-elevated)]">
+              <AppIcon name="plus" :size="26" :stroke-width="2.4" />
+            </span>
+          </router-link>
+
+          <router-link
+            v-for="tab in tabs.right"
+            :key="tab.to"
+            :to="tab.to"
+            class="flex min-h-14 flex-col items-center justify-center gap-1 px-1 text-[0.6875rem] font-medium transition-colors"
+            :class="isActive(tab.to) ? 'text-[var(--color-brand)]' : 'text-[var(--color-fg-subtle)]'"
+          >
+            <AppIcon :name="tab.icon" :size="22" :stroke-width="isActive(tab.to) ? 2.1 : 1.7" />
+            <span>{{ tab.label }}</span>
+          </router-link>
+
+          <button
+            type="button"
+            class="flex min-h-14 flex-col items-center justify-center gap-1 px-1 text-[0.6875rem] font-medium text-[var(--color-fg-subtle)]"
+            :class="moreActive ? 'text-[var(--color-brand)]' : ''"
+            @click="moreOpen = true"
+          >
+            <AppIcon name="more" :size="22" :stroke-width="2.6" />
+            <span>Mais</span>
+          </button>
+        </div>
+      </nav>
     </div>
+
+    <!-- ================= MOBILE: menu "Mais" ================= -->
+    <Transition name="sheet">
+      <div v-if="moreOpen" class="fixed inset-0 z-[var(--z-modal)] lg:hidden" role="dialog" aria-modal="true">
+        <div class="absolute inset-0 bg-black/45 animate-fade-in" @click="moreOpen = false"></div>
+
+        <div class="absolute inset-x-0 bottom-0 animate-slide-up rounded-t-2xl border-t border-[var(--color-border)] bg-[var(--color-bg-elevated)] pb-2 safe-bottom">
+          <div class="mx-auto mt-2 h-1 w-9 rounded-full bg-[var(--color-border-strong)]"></div>
+
+          <div class="grid grid-cols-3 gap-1 p-3">
+            <button
+              v-for="item in moreItems"
+              :key="item.to"
+              class="flex flex-col items-center gap-2 rounded-xl px-2 py-3.5 text-xs font-medium text-[var(--color-fg-muted)] transition-colors active:bg-[var(--color-bg-muted)]"
+              @click="go(item.to)"
+            >
+              <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--color-bg-muted)] text-[var(--color-fg)]">
+                <AppIcon :name="item.icon" :size="20" />
+              </span>
+              <span class="text-center leading-tight">{{ item.label }}</span>
+            </button>
+          </div>
+
+          <div class="border-t border-[var(--color-border)] p-3">
+            <div class="flex items-center justify-between gap-3 rounded-xl px-2 py-2">
+              <span class="text-sm font-medium text-[var(--color-fg-muted)]">Aparência</span>
+              <ThemeToggle />
+            </div>
+            <button
+              class="mt-1 flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-sm font-medium text-[var(--color-danger)] transition-colors active:bg-[var(--color-danger-light)]"
+              @click="logout"
+            >
+              <AppIcon name="logout" :size="19" />
+              Sair da conta
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
   </div>
+
+  <!-- Tutorial de primeiro acesso -->
+  <OnboardingTour />
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, ref, watch, onBeforeUnmount } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useAuthStore } from "../stores/auth";
-import { Tooltip } from "../components/ui";
+import { AppIcon, ThemeToggle, OnboardingTour } from "../components/ui";
+import BrandName from "../components/BrandName.vue";
+import NotificationBell from "../components/NotificationBell.vue";
 import { useTheme } from "../composables/useTheme";
+import { useOnboarding } from "../composables/useOnboarding";
+
+useTheme();
+
+// Primeira visita: abre o tutorial. Depois disso o flag no localStorage
+// segura, e dá para rever em Configurações → Rever tutorial.
+const { start: startTour } = useOnboarding();
+startTour();
 
 const sidebarOpen = ref(false);
+const moreOpen = ref(false);
 const auth = useAuthStore();
 const router = useRouter();
 const route = useRoute();
@@ -137,8 +232,17 @@ watch(
   () => route.fullPath,
   () => {
     sidebarOpen.value = false;
+    moreOpen.value = false;
   }
 );
+
+watch(moreOpen, (open) => {
+  document.body.style.overflow = open ? "hidden" : "";
+});
+
+onBeforeUnmount(() => {
+  document.body.style.overflow = "";
+});
 
 const userName = computed(() => auth.user?.name || "Usuário");
 const userEmail = computed(() => auth.user?.email || "");
@@ -148,83 +252,90 @@ function isActive(path: string): boolean {
   return route.path === path || route.path.startsWith(path + "/");
 }
 
-const icons = {
-  dashboard: {
-    component: { template: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l9-9 9 9M5 10v10a1 1 0 001 1h3a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1h3a1 1 0 001-1V10" /></svg>` },
-    iconBg: "bg-[var(--color-brand-light)]",
-  },
-  accounts: {
-    component: { template: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>` },
-    iconBg: "bg-[var(--color-success-light)]",
-  },
-  transactions: {
-    component: { template: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>` },
-    iconBg: "bg-[var(--color-info-light)]",
-  },
-  categories: {
-    component: { template: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>` },
-    iconBg: "bg-[var(--color-warning-light)]",
-  },
-  budgets: {
-    component: { template: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>` },
-    iconBg: "bg-[var(--color-brand-light)]",
-  },
-  goals: {
-    component: { template: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>` },
-    iconBg: "bg-[var(--color-success-light)]",
-  },
-  recurring: {
-    component: { template: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>` },
-    iconBg: "bg-[var(--color-info-light)]",
-  },
-  investments: {
-    component: { template: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>` },
-    iconBg: "bg-[var(--color-warning-light)]",
-  },
-  reports: {
-    component: { template: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>` },
-    iconBg: "bg-[var(--color-danger-light)]",
-  },
-  family: {
-    component: { template: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>` },
-    iconBg: "bg-[var(--color-info-light)]",
-  },
-  settings: {
-    component: { template: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>` },
-    iconBg: "bg-[var(--color-bg-muted)]",
-  },
+function go(to: string) {
+  moreOpen.value = false;
+  router.push(to);
+}
+
+interface NavItem {
+  to: string;
+  label: string;
+  icon: string;
+  badge?: string;
+}
+
+interface NavGroup {
+  label: string;
+  items: NavItem[];
+}
+
+/** Ancora usada pelo tutorial para destacar o item de menu. */
+function tourAnchor(path: string): string | undefined {
+  const map: Record<string, string> = {
+    "/dashboard": "dashboard",
+    "/accounts": "accounts",
+    "/transactions": "transactions",
+    "/invoices": "invoices",
+  };
+  return map[path];
+}
+
+// Abas da barra inferior — só o que o usuário usa todo dia
+const tabs = {
+  left: [
+    { to: "/dashboard", label: "Início", icon: "home" },
+    { to: "/accounts", label: "Contas", icon: "wallet" },
+  ] as NavItem[],
+  right: [{ to: "/transactions", label: "Lançamentos", icon: "arrows" }] as NavItem[],
 };
 
-const navGroups = [
+const moreItems: NavItem[] = [
+  { to: "/invoices", label: "Faturas", icon: "receipt" },
+  { to: "/categories", label: "Categorias", icon: "tag" },
+  { to: "/budgets", label: "Orçamentos", icon: "grid" },
+  { to: "/goals", label: "Metas", icon: "target" },
+  { to: "/recurring", label: "Recorrentes", icon: "repeat" },
+  { to: "/investments", label: "Investimentos", icon: "trending" },
+  { to: "/reports", label: "Relatórios", icon: "box" },
+  { to: "/family", label: "Família", icon: "users" },
+  { to: "/settings", label: "Ajustes", icon: "sliders" },
+  { to: "/docs", label: "Documentação", icon: "fileText" },
+];
+
+const moreActive = computed(() => moreItems.some((item) => isActive(item.to)));
+
+const navGroups: NavGroup[] = [
   {
     label: "Principal",
     items: [
-      { to: "/dashboard", label: "Dashboard", icon: icons.dashboard.component, iconBg: icons.dashboard.iconBg },
-      { to: "/accounts", label: "Contas", icon: icons.accounts.component, iconBg: icons.accounts.iconBg },
-      { to: "/transactions", label: "Transações", icon: icons.transactions.component, iconBg: icons.transactions.iconBg },
-      { to: "/categories", label: "Categorias", icon: icons.categories.component, iconBg: icons.categories.iconBg },
+      { to: "/dashboard", label: "Início", icon: "home" },
+      { to: "/accounts", label: "Contas", icon: "wallet" },
+      { to: "/transactions", label: "Transações", icon: "arrows" },
+      { to: "/invoices", label: "Faturas", icon: "receipt" },
+      { to: "/categories", label: "Categorias", icon: "tag" },
     ],
   },
   {
     label: "Planejamento",
     items: [
-      { to: "/budgets", label: "Orçamentos", icon: icons.budgets.component, iconBg: icons.budgets.iconBg, badge: "Em breve" },
-      { to: "/goals", label: "Metas", icon: icons.goals.component, iconBg: icons.goals.iconBg, badge: "Em breve" },
-      { to: "/recurring", label: "Recorrentes", icon: icons.recurring.component, iconBg: icons.recurring.iconBg, badge: "Em breve" },
+      { to: "/budgets", label: "Orçamentos", icon: "grid", badge: "Breve" },
+      { to: "/goals", label: "Metas", icon: "target", badge: "Breve" },
+      { to: "/recurring", label: "Recorrentes", icon: "repeat", badge: "Breve" },
     ],
   },
   {
     label: "Patrimônio",
     items: [
-      { to: "/investments", label: "Investimentos", icon: icons.investments.component, iconBg: icons.investments.iconBg, badge: "Em breve" },
-      { to: "/reports", label: "Relatórios", icon: icons.reports.component, iconBg: icons.reports.iconBg, badge: "Em breve" },
+      { to: "/investments", label: "Investimentos", icon: "trending", badge: "Breve" },
+      { to: "/reports", label: "Relatórios", icon: "box", badge: "Breve" },
+      { to: "/family", label: "Família", icon: "users", badge: "Breve" },
     ],
   },
   {
-    label: "Outros",
+    label: "Conta",
     items: [
-      { to: "/family", label: "Família", icon: icons.family.component, iconBg: icons.family.iconBg, badge: "Em breve" },
-      { to: "/settings", label: "Configurações", icon: icons.settings.component, iconBg: icons.settings.iconBg },
+      { to: "/settings", label: "Configurações", icon: "sliders" },
+      { to: "/docs", label: "Documentação", icon: "fileText" },
     ],
   },
 ];
@@ -236,23 +347,35 @@ async function logout() {
 </script>
 
 <style scoped>
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity var(--duration-base) var(--ease-out);
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-height: 2.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-lg);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-fg-muted);
+  transition: background-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
 }
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
+.nav-item:hover {
+  background-color: var(--color-bg-muted);
+  color: var(--color-fg);
+}
+.nav-item-active,
+.nav-item-active:hover {
+  background-color: var(--color-brand-light);
+  color: var(--color-brand);
 }
 
-.nav-link {
-  border-radius: var(--radius-lg);
+.sheet-enter-active,
+.sheet-leave-active {
+  transition: opacity var(--duration-base) var(--ease-out);
 }
-.nav-link:hover {
-  background-color: var(--color-bg-muted);
-}
-.nav-link:focus-visible {
-  outline: 2px solid var(--color-brand);
-  outline-offset: 2px;
+.sheet-enter-from,
+.sheet-leave-to {
+  opacity: 0;
 }
 </style>

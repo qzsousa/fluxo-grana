@@ -1,12 +1,14 @@
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 import { useLogin, useRegister, useRefreshToken, useLogout, useMe } from "../composables/useApi";
+import { friendlyApiError } from "../utils/api-error";
 
 export interface User {
   id: string;
   email: string;
   name: string;
   avatar?: string;
+  role?: string;
   locale: string;
   currency: string;
   timezone: string;
@@ -60,7 +62,7 @@ export const useAuthStore = defineStore("auth", () => {
       
       return { success: true };
     } catch (error: any) {
-      return { success: false, error: error.response?.data?.error || error.message || "Login failed" };
+      return { success: false, error: friendlyApiError(error, "Falha ao entrar. Verifique suas credenciais.") };
     } finally {
       loading.value = false;
     }
@@ -84,7 +86,7 @@ export const useAuthStore = defineStore("auth", () => {
       
       return { success: true };
     } catch (error: any) {
-      return { success: false, error: error.response?.data?.error || error.message || "Registration failed" };
+      return { success: false, error: friendlyApiError(error, "Não foi possível criar a conta.") };
     } finally {
       loading.value = false;
     }

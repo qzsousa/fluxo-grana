@@ -9,3 +9,6 @@ export { default as Pagination } from "./Pagination.vue";
 export { default as Card } from "./Card.vue";
 export { default as EmptyState } from "./EmptyState.vue";
 export { default as Tooltip } from "./Tooltip.vue";
+export { default as AppIcon } from "./AppIcon.vue";
+export { default as ThemeToggle } from "./ThemeToggle.vue";
+export { default as OnboardingTour } from "./OnboardingTour.vue";

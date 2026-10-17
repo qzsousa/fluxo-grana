@@ -29,16 +29,11 @@ function addToast(toast: Omit<Toast, "id">) {
     id,
     duration: toast.duration ?? 5000,
   };
-  
+
+  // Sem timer aqui de propósito: o `Toast` cuida da contagem e pausa no hover.
+  // Dois timers em paralelo fariam o aviso sumir enquanto o mouse está sobre ele.
   state.value.toasts.push(newToast);
-  
-  // Auto-remove after duration
-  if (newToast.duration && newToast.duration > 0) {
-    setTimeout(() => {
-      removeToast(id);
-    }, newToast.duration);
-  }
-  
+
   return id;
 }
 
@@ -86,6 +81,7 @@ export function useToast() {
   return {
     toasts,
     addToast,
+    remove,
     removeToast: remove,
     removeAll: clear,
     success,
@@ -94,5 +90,3 @@ export function useToast() {
     info,
   };
 }
-
-export type { Toast };

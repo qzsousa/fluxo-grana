@@ -8,19 +8,29 @@
     ]"
     @click="interactive && $emit('click')"
   >
-    <div v-if="hasHeader" class="px-6 py-4 border-b border-[var(--color-border)] bg-[var(--color-bg-muted)] flex items-start justify-between gap-4">
+    <div
+      v-if="hasHeader"
+      class="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--color-border)] px-4 py-3 sm:px-5 sm:py-4"
+    >
       <div class="min-w-0">
-        <h3 v-if="title" class="font-display text-lg font-normal text-[var(--color-fg)] truncate">{{ title }}</h3>
-        <p v-if="description" class="mt-1 text-sm text-[var(--color-fg-muted)] truncate">{{ description }}</p>
+        <h3 v-if="title" class="truncate text-base font-semibold tracking-tight text-[var(--color-fg)]">
+          {{ title }}
+        </h3>
+        <p v-if="description" class="mt-0.5 text-sm text-[var(--color-fg-muted)]">
+          {{ description }}
+        </p>
       </div>
-      <slot name="header-actions"></slot>
+      <div class="flex shrink-0 items-center gap-2">
+        <slot name="header-actions"></slot>
+      </div>
     </div>
 
-    <div :class="contentClasses">
-      <slot></slot>
-    </div>
+    <slot></slot>
 
-    <div v-if="$slots.footer" class="px-6 py-4 border-t border-[var(--color-border)] bg-[var(--color-bg-muted)] flex items-center justify-end gap-3">
+    <div
+      v-if="$slots.footer"
+      class="flex flex-wrap items-center justify-end gap-2 border-t border-[var(--color-border)] px-4 py-3 sm:px-5"
+    >
       <slot name="footer"></slot>
     </div>
   </div>
@@ -48,10 +58,10 @@ const slots = useSlots();
 const variantClasses = computed(() => {
   const variants = {
     default: "",
-    outlined: "border-2 border-[var(--color-border)] shadow-none",
-    elevated: "shadow-lg border-none",
-    filled: "bg-[var(--color-bg-muted)] border-none",
-    glass: "glass shadow-lg border-none",
+    outlined: "border-[var(--color-border-strong)]",
+    elevated: "border-transparent shadow-[var(--shadow-lg)]",
+    filled: "bg-[var(--color-bg-muted)] border-transparent shadow-none",
+    glass: "glass border-[var(--color-border)]",
   };
   return variants[props.variant] || variants.default;
 });
@@ -60,15 +70,10 @@ const paddingClasses = computed(() => {
   const paddings = {
     none: "",
     sm: "p-4",
-    md: "p-6",
-    lg: "p-8",
+    md: "p-4 sm:p-5",
+    lg: "p-5 sm:p-7",
   };
   return paddings[props.padding] || paddings.md;
-});
-
-const contentClasses = computed(() => {
-  if (props.padding === "none") return "";
-  return "";
 });
 
 const hasHeader = computed(() => !!props.title || !!props.description || !!slots["header-actions"]);

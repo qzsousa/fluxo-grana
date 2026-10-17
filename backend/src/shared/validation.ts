@@ -32,15 +32,83 @@ export const createAccountSchema = z.object({
   name: z.string().min(1, "Name is required").max(100, "Name too long"),
   type: z.enum(["CHECKING", "SAVINGS", "CREDIT", "INVESTMENT", "CRYPTO", "CASH", "OTHER"]),
   currency: z.string().length(3, "Currency must be 3 characters (ISO 4217)").default("BRL"),
-  balance: z.number().default(0),
   initialBalance: z.number().default(0),
+  // Sem `.default()` de propósito: o service usa o absence do campo para saber
+  // que o saldo deve nascer do `initialBalance`. Com default 0 aqui, toda conta
+  // nova abriria em zero.
+  balance: z.number().optional(),
   color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Color must be a valid hex color").default("#3B82F6"),
   icon: z.string().optional(),
   institution: z.string().max(100).optional(),
+  // Cartão de crédito: dia de fechamento e vencimento (1-31) e limite.
+  // Aceitam null porque é assim que o cliente limpa os campos ao trocar o tipo
+  // da conta para algo que não é cartão.
+  closingDay: z.number().int().min(1).max(31).nullable().optional(),
+  dueDay: z.number().int().min(1).max(31).nullable().optional(),
+  creditLimit: z.number().positive("Credit limit must be positive").nullable().optional(),
 });
 
 export const updateAccountSchema = createAccountSchema.partial().extend({
   isActive: z.boolean().optional(),
+});
+
+/** Fechamento e vencimento precisam cair no mesmo cartão quando os dois vão. */
+export const creditCardRulesSchema = z
+  .object({
+    type: z.enum(["CHECKING", "SAVINGS", "CREDIT", "INVESTMENT", "CRYPTO", "CASH", "OTHER"]),
+    closingDay: z.number().int().min(1).max(31).nullable().optional(),
+    dueDay: z.number().int().min(1).max(31).nullable().optional(),
+  })
+  .refine((data) => data.type !== "CREDIT" || (data.closingDay != null && data.dueDay != null), {
+    message: "Cartão de crédito precisa de dia de fechamento e de vencimento",
+    path: ["closingDay"],
+  });
+
+// Invoice Schemas
+export const invoiceListQuerySchema = z.object({
+  accountId: z.string().cuid().optional(),
+  reference: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Reference must be YYYY-MM").optional(),
+  monthsBack: z.coerce.number().int().min(0).max(24).default(3),
+  monthsForward: z.coerce.number().int().min(0).max(24).default(1),
+});
+
+export const upcomingQuerySchema = z.object({
+  days: z.coerce.number().int().min(0).max(60).default(7),
+  accountId: z.string().cuid().optional(),
+});
+
+export const payInvoiceSchema = z.object({
+  amount: z.number().positive("Payment amount must be positive").optional(),
+  paidAt: z.string().datetime().optional(),
+  fromAccountId: z.string().cuid("Invalid source account ID").optional(),
+  description: z.string().max(500).optional(),
+});
+
+// Pagamento de uma compra avulsa, direto da lista de transações.
+export const payTransactionSchema = z.object({
+  fromAccountId: z.string().cuid("Invalid source account ID").optional(),
+  paidAt: z.string().datetime().optional(),
+});
+
+// Note Schemas
+export const createNoteSchema = z.object({
+  content: z.string().min(1, "Lembrete não pode ficar vazio").max(1000, "Lembrete muito longo"),
+  color: z
+    .string()
+    .regex(/^#[0-9A-Fa-f]{6}$/, "Color must be a valid hex color")
+    .nullable()
+    .optional(),
+  pinned: z.boolean().optional(),
+});
+
+export const updateNoteSchema = z.object({
+  content: z.string().min(1, "Lembrete não pode ficar vazio").max(1000, "Lembrete muito longo").optional(),
+  color: z
+    .string()
+    .regex(/^#[0-9A-Fa-f]{6}$/, "Color must be a valid hex color")
+    .nullable()
+    .optional(),
+  pinned: z.boolean().optional(),
 });
 
 // Transaction Schemas
@@ -56,9 +124,19 @@ export const createTransactionSchema = z.object({
   notes: z.string().max(2000).optional(),
   tags: z.array(z.string().max(50)).default([]),
   toAccountId: z.string().cuid("Invalid destination account ID").optional(),
+  // Identidade visual da despesa, escolhida no formulário.
+  icon: z.string().max(50).optional(),
+  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Color must be a valid hex color").optional(),
+  // `PENDING` cria a despesa como "a pagar": ela entra na lista, mas o saldo
+  // da conta só cai quando o usuário clicar em Pagar.
+  status: z.enum(["PENDING"]).optional(),
 });
 
-export const updateTransactionSchema = createTransactionSchema.partial();
+export const updateTransactionSchema = createTransactionSchema.partial().extend({
+  // Só o `create` aceita PENDING (é o "ainda não paguei"). No update o status
+  // muda como consequência de pagar/desfazer, não de um campo livre.
+  status: z.enum(["PENDING", "CLEARED", "RECONCILED", "CANCELLED"]).optional(),
+});
 
 export const transactionFiltersSchema = z.object({
   dateFrom: z.string().datetime().optional(),
