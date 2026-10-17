@@ -8,7 +8,7 @@
       aria-labelledby="tour-title"
     >
       <!-- Escurece tudo menos o elemento destacado (máscara SVG) -->
-      <svg class="absolute inset-0 h-full w-full" aria-hidden="true">
+      <svg class="absolute inset-0 h-full w-full pointer-events-none" aria-hidden="true">
         <defs>
           <mask id="tour-mask">
             <rect x="0" y="0" width="100%" height="100%" fill="white" />
